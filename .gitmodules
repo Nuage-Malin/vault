@@ -1,0 +1,3 @@
+[submodule "third_parties/protobuf-interfaces"]
+	path = third_parties/protobuf-interfaces
+	url = git@github.com:Nuage-Malin/protobuf-interfaces.git
