@@ -1,0 +1,11 @@
+[package]
+name = "vault"
+version = "0.1.0"
+authors = ["Arthur Jourdan <arthur.jourdan@epitech.eu>"]
+edition = "2021"
+
+[dependencies]
+tonic = "0.8.3"
+
+[build-dependencies]
+tonic-build = "0.8.3"
