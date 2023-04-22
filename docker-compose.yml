@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+    vault:
+        build:
+            dockerfile: Dockerfile
+        container_name: vault
+        environment:
+            VAULT_ADDRESS: ${VAULT_ADDRESS}
+            VAULT_PORT: ${VAULT_PORT}
+
+        expose:
+            - ${VAULT_PORT}
+        # networks:
+            # - maestro:vault
+        restart: on-failure
+
+# networks:
+    # maestro:vault:
+        # external: true
