@@ -11,10 +11,10 @@ services:
 
         expose:
             - ${VAULT_PORT}
-        # networks:
-            # - maestro:vault
+        networks:
+            - maestro:vault
         restart: on-failure
 
-# networks:
-    # maestro:vault:
-        # external: true
+networks:
+    maestro:vault:
+        external: true
