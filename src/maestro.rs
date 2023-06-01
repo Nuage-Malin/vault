@@ -1,9 +1,27 @@
-// use syscalls::{Sysno, syscall, Errno};
+mod tests;
 use crate::models::grpc::maestro_vault::{self, maestro_vault_service_server::MaestroVaultService};
 
 #[derive(Debug, Default)]
 pub struct MaestroVault {
-  pub fake_item: String,
+}
+
+impl MaestroVault {
+  pub fn new() -> MaestroVault {
+    MaestroVault {}
+  }
+}
+
+fn dir_exists(path: String) -> bool {
+  // TODO create dir by maestro once,
+  //  do not call this method everytime upload_file is called
+  // todo make a card on improving the services coherency
+  let resp = std::fs::create_dir(path);
+
+  if resp.is_err() {
+    return false;
+  }
+
+  return true;
 }
 
 #[tonic::async_trait]
@@ -21,8 +39,10 @@ impl MaestroVaultService for MaestroVault {
     // allowing easy browsing through users files (as they are all in the directory "users_id")
     let my_request = request.into_inner();
 
+    let my_path = my_request.user_id;
+    dir_exists(my_path.to_string());
     // todo create a directory for all users directories, and subdirectories for organisations ?
-    let ret = std::fs::write(my_request.user_id + "/" + my_request.file_id.as_str(), my_request.content);
+    let ret = std::fs::write(my_path + "/" + my_request.file_id.as_str(), my_request.content);
 
     match ret {
       Ok(_) => {
@@ -122,3 +142,4 @@ impl MaestroVaultService for MaestroVault {
     return Ok(tonic::Response::new(status));
   }
 }
+
