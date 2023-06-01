@@ -78,6 +78,26 @@ impl MaestroVaultService for MaestroVault {
   }
 
   /* unlink */
+  async fn remove_file(
+      &self,
+      request: tonic::Request<maestro_vault::RemoveFileRequest>,
+  ) -> Result<tonic::Response<maestro_vault::RemoveFileStatus>, tonic::Status>
+  {
+    let my_request: maestro_vault::RemoveFileRequest = request.into_inner();
+    let status = maestro_vault::RemoveFileStatus{};
+
+    let ret = std::fs::remove_file(my_request.user_id + "/" + my_request.file_id.as_str());
+
+    match ret {
+      Ok(_) => {},
+      Err(err) => {
+        return Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()));
+      }
+    }
+    return Ok(tonic::Response::new(status));
+  }
+
+  /* unlink */
   async fn remove_files(
       &self,
       request: tonic::Request<maestro_vault::RemoveFilesRequest>,
@@ -87,7 +107,7 @@ impl MaestroVaultService for MaestroVault {
     let mut status = maestro_vault::RemoveFilesStatus{file_id_failures: vec!()};
 
     for file_id in my_requests.file_id {
-      let ret = std::fs::remove_file(my_requests.disk_id.clone() + "/" + file_id.as_str());
+      let ret = std::fs::remove_file(String::from(my_requests.user_id.as_str()) + "/" + file_id.as_str());
 
       match ret {
         Ok(_) => {},

@@ -1,5 +1,4 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("hello compile");
 	let protobufs_dir = "third_parties/protobuf-interfaces";
 
     tonic_build::configure()

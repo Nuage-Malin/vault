@@ -19,8 +19,8 @@ mod tests {
             disk_id: DISK_ID.to_string(),
             content: FILE_CONTENTS[0].to_string().into_bytes()};
         let vault = MaestroVault::new();
-        let my_request = tonic::Request::new(request_content);
-        let result = vault.upload_file(my_request).await;
+        let request = tonic::Request::new(request_content);
+        let result = vault.upload_file(request).await;
 
         match result {
             Ok(_) => {}
@@ -49,8 +49,8 @@ mod tests {
             ]
         };
         let vault = MaestroVault::new();
-        let my_request = tonic::Request::new(request_content);
-        let result = vault.upload_files(my_request).await;
+        let request = tonic::Request::new(request_content);
+        let result = vault.upload_files(request).await;
 
         match result {
             Ok(response) => {
@@ -74,8 +74,8 @@ mod tests {
             disk_id: DISK_ID.to_string(),
         };
         let vault = MaestroVault::new();
-        let my_request = tonic::Request::new(request_content);
-        let result = vault.download_file(my_request).await;
+        let request = tonic::Request::new(request_content);
+        let result = vault.download_file(request).await;
 
         match result {
             Ok(response) => {
@@ -116,8 +116,8 @@ mod tests {
             ]
         };
         let vault = MaestroVault::new();
-        let my_request = tonic::Request::new(request_content);
-        let result = vault.download_files(my_request).await;
+        let request = tonic::Request::new(request_content);
+        let result = vault.download_files(request).await;
         let mut count = 1;
 
         match result {
@@ -145,7 +145,54 @@ mod tests {
             Err(error) => {
                 // Print the error message for the Err variant
                 eprintln!("\nError: {}", error);
-                assert!(false)
+                assert!(false);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn _5_remove_file_test() {
+        let request_content = maestro_vault::RemoveFileRequest{
+            file_id: FILE_IDS[0].to_string(),
+            user_id: USER_ID.to_string(),
+            disk_id: DISK_ID.to_string()
+        };
+        let vault = MaestroVault::new();
+        let request = tonic::Request::new(request_content);
+        let result = vault.remove_file(request).await;
+
+        match result {
+            Ok(_) => {},
+            Err(error) => {
+                eprintln!("\nError: {}", error);
+                assert!(false);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn _6_remove_files_test() {
+        let request_content = maestro_vault::RemoveFilesRequest{
+            file_id: vec![
+                    FILE_IDS[1].to_string(),
+                    FILE_IDS[2].to_string(),
+                ],
+            user_id: USER_ID.to_string(),
+            disk_id: DISK_ID.to_string()
+        };
+        let vault = MaestroVault::new();
+        let request = tonic::Request::new(request_content);
+        let result = vault.remove_files(request).await;
+
+        match result {
+            Ok(response) => {
+                let status = response.into_inner();
+
+                assert_eq!(status.file_id_failures.len(), 0);
+            },
+            Err(error) => {
+                eprintln!("\nError: {}", error);
+                assert!(false);
             }
         }
     }
