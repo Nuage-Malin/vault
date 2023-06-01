@@ -13,3 +13,7 @@ docker compose build --env-file env/vault.env
 ```sh
 docker compose up --env-file env/vault.env
 ```
+## Test
+```sh
+./scripts/launch_unit_tests.sh
+```
