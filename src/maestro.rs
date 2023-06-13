@@ -1,5 +1,13 @@
 mod tests;
+use std::str::FromStr;
+
+use bson::oid::ObjectId;
+
 use crate::models::grpc::maestro_vault::{self, maestro_vault_service_server::MaestroVaultService};
+use crate::stats;
+use crate::models::users_disks::ApproxUserDiskUpdate;
+use crate::models::users_disks::DiskAction;
+
 
 #[derive(Debug, Default)]
 pub struct MaestroVault {
@@ -39,13 +47,21 @@ impl MaestroVaultService for MaestroVault {
     // allowing easy browsing through users files (as they are all in the directory "users_id")
     let my_request = request.into_inner();
 
-    let my_path = my_request.user_id;
+    let my_path = my_request.user_id.as_str();
     dir_exists(my_path.to_string());
     // todo create a directory for all users directories, and subdirectories for organisations ?
-    let ret = std::fs::write(my_path + "/" + my_request.file_id.as_str(), my_request.content);
+    let ret = std::fs::write(my_path.to_string() + "/" + my_request.file_id.as_str(), my_request.content);
 
     match ret {
       Ok(_) => {
+
+        let db = stats::users_disks::MongoRepo::init().await;
+        db.disk_update_insert(ApproxUserDiskUpdate{
+          disk_id: ObjectId::from_str(my_request.disk_id.as_str()).unwrap(),
+          user_id: ObjectId::from_str(my_request.user_id.as_str()).unwrap(),
+          file_id: ObjectId::from_str(my_request.file_id.as_str()).unwrap(),
+          action: DiskAction::CREATE
+        }).await.unwrap();
         Ok(tonic::Response::new(maestro_vault::UploadFileStatus{}))
       },
       Err(err) => {

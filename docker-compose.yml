@@ -6,6 +6,7 @@ services:
             dockerfile: Dockerfile
         container_name: vault
         environment:
+            MONGO_URI: ${MONGO_URI}
             VAULT_ADDRESS: ${VAULT_ADDRESS}
             VAULT_PORT: ${VAULT_PORT}
 

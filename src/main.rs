@@ -1,5 +1,6 @@
 mod models;
 mod maestro;
+mod stats;
 use std::net::{SocketAddr, Ipv6Addr, SocketAddrV6};
 
 use crate::models::grpc::maestro_vault::{maestro_vault_service_server::MaestroVaultServiceServer};

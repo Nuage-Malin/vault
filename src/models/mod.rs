@@ -1,3 +1,4 @@
+pub mod users_disks;
 
 pub mod grpc {
     pub mod maestro_vault {
