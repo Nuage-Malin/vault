@@ -5,8 +5,7 @@ use bson::oid::ObjectId;
 
 use crate::models::grpc::maestro_vault::{self, maestro_vault_service_server::MaestroVaultService};
 use crate::stats;
-use crate::models::users_disks::ApproxUserDiskUpdate;
-use crate::models::users_disks::DiskAction;
+use crate::models::users_disks::{ApproxUserDiskUpdate, ApproxUserDiskInfo, DiskAction};
 
 
 #[derive(Debug, Default)]
@@ -42,6 +41,8 @@ impl MaestroVaultService for MaestroVault {
   ) -> Result<tonic::Response<maestro_vault::UploadFileStatus>, tonic::Status>
   // TODO mutualise code with function upload_files
   {
+
+
     // create directories for users with user_id
     // file is stored with the path : "user_id/file_id"
     // allowing easy browsing through users files (as they are all in the directory "users_id")
@@ -56,11 +57,16 @@ impl MaestroVaultService for MaestroVault {
       Ok(_) => {
 
         let db = stats::users_disks::MongoRepo::init().await;
+
         db.disk_update_insert(ApproxUserDiskUpdate{
           disk_id: ObjectId::from_str(my_request.disk_id.as_str()).unwrap(),
           user_id: ObjectId::from_str(my_request.user_id.as_str()).unwrap(),
           file_id: ObjectId::from_str(my_request.file_id.as_str()).unwrap(),
           action: DiskAction::CREATE
+        }).await.unwrap();
+        db.disk_update_used_memory(ApproxUserDiskInfo{
+          disk_id: ObjectId::from_str(my_request.disk_id.as_str()).unwrap(),
+          user_id: ObjectId::from_str(my_request.user_id.as_str()).unwrap()
         }).await.unwrap();
         Ok(tonic::Response::new(maestro_vault::UploadFileStatus{}))
       },
@@ -77,14 +83,28 @@ impl MaestroVaultService for MaestroVault {
   ) -> Result<tonic::Response<maestro_vault::UploadFilesStatus>, tonic::Status>
   // TODO mutualise code with function upload_file
   {
+
     let my_requests = request.into_inner();
     let mut status = maestro_vault::UploadFilesStatus{file_id_failures: vec!()};
 
     for my_request in my_requests.files {
-      let ret = std::fs::write(my_request.user_id + "/" + my_request.file_id.as_str(), my_request.content);
+      let ret = std::fs::write(String::from(my_request.user_id.as_str()) + "/" + my_request.file_id.as_str(), my_request.content);
 
       match ret {
-        Ok(_) => {},
+        Ok(_) => {
+          let db = stats::users_disks::MongoRepo::init().await;
+
+          db.disk_update_insert(ApproxUserDiskUpdate{
+            disk_id: ObjectId::from_str(my_request.disk_id.as_str()).unwrap(),
+            user_id: ObjectId::from_str(my_request.user_id.as_str()).unwrap(),
+            file_id: ObjectId::from_str(my_request.file_id.as_str()).unwrap(),
+            action: DiskAction::CREATE
+          }).await.unwrap();
+          db.disk_update_used_memory(ApproxUserDiskInfo{
+            disk_id: ObjectId::from_str(my_request.disk_id.as_str()).unwrap(),
+            user_id: ObjectId::from_str(my_request.user_id.as_str()).unwrap()
+          }).await.unwrap();
+        },
         Err(_) => {
           status.file_id_failures.push(my_request.file_id)
         }
@@ -102,10 +122,23 @@ impl MaestroVaultService for MaestroVault {
     let my_request: maestro_vault::RemoveFileRequest = request.into_inner();
     let status = maestro_vault::RemoveFileStatus{};
 
-    let ret = std::fs::remove_file(my_request.user_id + "/" + my_request.file_id.as_str());
+    let ret = std::fs::remove_file(String::from(my_request.user_id.as_str()) + "/" + my_request.file_id.as_str());
 
     match ret {
-      Ok(_) => {},
+      Ok(_) => {
+        let db = stats::users_disks::MongoRepo::init().await;
+        db.disk_update_insert(ApproxUserDiskUpdate{
+          disk_id: ObjectId::from_str(my_request.disk_id.as_str()).unwrap(),
+          user_id: ObjectId::from_str(my_request.user_id.as_str()).unwrap(),
+          file_id: ObjectId::from_str(my_request.file_id.as_str()).unwrap(),
+          action: DiskAction::DELETE
+        }).await.unwrap();
+        db.disk_update_used_memory(ApproxUserDiskInfo{
+          disk_id: ObjectId::from_str(my_request.disk_id.as_str()).unwrap(),
+          user_id: ObjectId::from_str(my_request.user_id.as_str()).unwrap()
+        }).await.unwrap();
+        // todo refactor this code to put repetitions in one function
+      },
       Err(err) => {
         return Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()));
       }
@@ -126,7 +159,19 @@ impl MaestroVaultService for MaestroVault {
       let ret = std::fs::remove_file(String::from(my_requests.user_id.as_str()) + "/" + file_id.as_str());
 
       match ret {
-        Ok(_) => {},
+        Ok(_) => {
+          let db = stats::users_disks::MongoRepo::init().await;
+          db.disk_update_insert(ApproxUserDiskUpdate{
+            disk_id: ObjectId::from_str(my_requests.disk_id.as_str()).unwrap(),
+            user_id: ObjectId::from_str(my_requests.user_id.as_str()).unwrap(),
+            file_id: ObjectId::from_str(file_id.as_str()).unwrap(),
+            action: DiskAction::DELETE
+          }).await.unwrap();
+          db.disk_update_used_memory(ApproxUserDiskInfo{
+            disk_id: ObjectId::from_str(my_requests.disk_id.as_str()).unwrap(),
+            user_id: ObjectId::from_str(my_requests.user_id.as_str()).unwrap()
+          }).await.unwrap();
+        },
         Err(_) => {
           status.file_id_failures.push(file_id)
         }
@@ -143,10 +188,21 @@ impl MaestroVaultService for MaestroVault {
   ) -> Result<tonic::Response<maestro_vault::DownloadFileStatus>, tonic::Status>
   {
     let my_request = request.into_inner();
-    let ret = std::fs::read(my_request.user_id + "/" + my_request.file_id.as_str());
+    let ret = std::fs::read(String::from(my_request.user_id.as_str()) + "/" + my_request.file_id.as_str());
 
     match ret {
       Ok(read_res) => {
+        let db = stats::users_disks::MongoRepo::init().await;
+        db.disk_update_insert(ApproxUserDiskUpdate{
+          disk_id: ObjectId::from_str(my_request.disk_id.as_str()).unwrap(),
+          user_id: ObjectId::from_str(my_request.user_id.as_str()).unwrap(),
+          file_id: ObjectId::from_str(my_request.file_id.as_str()).unwrap(),
+          action: DiskAction::DELETE
+        }).await.unwrap();
+        db.disk_update_used_memory(ApproxUserDiskInfo{
+          disk_id: ObjectId::from_str(my_request.disk_id.as_str()).unwrap(),
+          user_id: ObjectId::from_str(my_request.user_id.as_str()).unwrap()
+        }).await.unwrap();
         Ok(tonic::Response::new(maestro_vault::DownloadFileStatus{content: read_res}))
       },
       Err(err) => {
@@ -165,10 +221,21 @@ impl MaestroVaultService for MaestroVault {
     let mut status = maestro_vault::DownloadFilesStatus{files: vec!()};
 
     for file in my_request.files {
-      let ret = std::fs::read(file.user_id + "/" + file.file_id.as_str());
+      let ret = std::fs::read(String::from(file.user_id.as_str()) + "/" + file.file_id.as_str());
 
       match ret {
         Ok(read_res) => {
+          let db = stats::users_disks::MongoRepo::init().await;
+          db.disk_update_insert(ApproxUserDiskUpdate{
+            disk_id: ObjectId::from_str(file.disk_id.as_str()).unwrap(),
+            user_id: ObjectId::from_str(file.user_id.as_str()).unwrap(),
+            file_id: ObjectId::from_str(file.file_id.as_str()).unwrap(),
+            action: DiskAction::READ
+          }).await.unwrap();
+          db.disk_update_used_memory(ApproxUserDiskInfo{
+            disk_id: ObjectId::from_str(file.disk_id.as_str()).unwrap(),
+            user_id: ObjectId::from_str(file.user_id.as_str()).unwrap()
+          }).await.unwrap();
           status.files.push(maestro_vault::DownloadFilesElemStatus{file_id: file.file_id, content: read_res})
         },
         Err(_) => {

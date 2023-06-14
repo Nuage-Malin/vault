@@ -1,6 +1,9 @@
 
-use crate::models::users_disks::{UserDiskInfo, UserDiskUpdate, ApproxUserDiskUpdate, DiskAction};
-// use bson::oid::ObjectId;
+use crate::models::users_disks::{UserDiskInfo, ApproxUserDiskInfo, UserDiskUpdate, ApproxUserDiskUpdate, DiskAction};
+use bson::oid::ObjectId;
+
+extern crate sysinfo;
+use sysinfo::SystemExt;
 
 use std::env;
 use mongodb::{Client, Collection, results::InsertOneResult, error::Result};
@@ -36,10 +39,24 @@ impl MongoRepo {
             file_id: Some(disk_update.file_id),
             action: match disk_update.action {
                 DiskAction::READ => "r".to_string(),
-                DiskAction::WRITE => "w".to_string(),
                 DiskAction::CREATE => "c".to_string(),
                 DiskAction::DELETE => "d".to_string()
             },
+            created_at: bson::DateTime::now()
+        }, None).await
+    }
+
+    pub async fn disk_update_used_memory(&self, disk_update: ApproxUserDiskInfo) -> Result<InsertOneResult>
+    {
+        let mut system = sysinfo::System::new_all();
+
+        system.refresh_all();
+        // println!("Disk: {}", system.used_memory());
+        self.user_disk_info.insert_one(UserDiskInfo{
+            disk_id: Some(disk_update.disk_id),
+            user_id: Some(disk_update.user_id),
+            disk_wakeup: Some(ObjectId::new()),
+            used_memory: system.used_memory(),
             created_at: bson::DateTime::now()
         }, None).await
     }

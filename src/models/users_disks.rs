@@ -17,16 +17,20 @@ pub struct UserDiskInfo {
 	pub disk_id: Option<ObjectId>,
     #[serde(skip_serializing_if = "Option::is_none")]
 	pub user_id: Option<ObjectId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    // #[serde(skip_serializing_if = "Option::is_none")]
 	pub disk_wakeup: Option<ObjectId>, // Ref to diskWakeup
-	pub used_memory: i32, // Used memory by the user
+	pub used_memory: u64, // Used memory by the user
 	pub created_at: DateTime
+}
+
+pub struct ApproxUserDiskInfo {
+	pub disk_id: ObjectId,
+	pub user_id: ObjectId
 }
 
 #[derive(Debug)]
 pub enum DiskAction { // todo protobuf with enum so that it is compatible with any other service
     READ,
-    WRITE,
     CREATE,
     DELETE
 }
