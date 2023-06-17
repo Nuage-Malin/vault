@@ -7,6 +7,7 @@ extern crate sysinfo;
 use sysinfo::SystemExt;
 
 use std::env;
+// use std::error::Error;
 
 pub struct MongoRepo {
     user_disk_info: Collection<UserDiskInfo>,
@@ -48,10 +49,8 @@ impl MongoRepo {
         }, None).await
     }
 
-    pub async fn disk_update_used_memory(&self, disk_update: ApproxUserDiskInfo) -> Result<InsertOneResult>
+    pub async fn disk_used_memory_update(&self, disk_update: ApproxUserDiskInfo) -> Result<InsertOneResult>
     {
-
-        println!("disk_id : {}", disk_update.disk_id);
         let options = FindOneOptions::builder()
             .sort(doc! { "startup.date": -1 })
             .build();
@@ -70,5 +69,28 @@ impl MongoRepo {
             used_memory: system.used_memory(),
             created_at: bson::DateTime::now()
         }, None).await
+    }
+
+    pub async fn update_disk_logs(&self, disk_update: ApproxUserDiskUpdate, disk_info: ApproxUserDiskInfo)
+    {
+
+        let disk_update = self.disk_update_insert(disk_update).await;
+
+        match disk_update {
+            Ok(_) => {}
+            Err(err) => {
+                eprintln!("Could not insert disk update log");
+                eprintln!("{}", err);
+            }
+        };
+        let disk_used_memory = self.disk_used_memory_update(disk_info).await;
+
+        match disk_used_memory {
+            Ok(_) => {}
+            Err(err) => {
+                eprintln!("Could not insert updated used disk memory :");
+                eprintln!("{}", err);
+            }
+        };
     }
 }
