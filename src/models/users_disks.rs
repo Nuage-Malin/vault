@@ -40,11 +40,11 @@ pub enum DiskAction { // todo protobuf with enum so that it is compatible with a
 */
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserDiskUpdate {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "diskId", skip_serializing_if = "Option::is_none")]
 	pub disk_id: Option<ObjectId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
 	pub user_id: Option<ObjectId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "fileId", skip_serializing_if = "Option::is_none")]
 	pub file_id: Option<ObjectId>, // Not sure to keep this data
 	pub action: String, // Enum: read | write | delete
 	pub created_at: DateTime
@@ -59,4 +59,31 @@ pub struct ApproxUserDiskUpdate {
 	pub user_id: ObjectId,
 	pub file_id: ObjectId, // Not sure to keep this data
 	pub action: DiskAction, // Enum: read | write | delete
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Event {
+	date: DateTime,
+
+    #[serde(rename = "isManual")]
+	is_manual: bool // todo change name at serialisation, with original notion name
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PeriodInfo {
+	consumption: i32
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DiskWakeup {
+    // #[serde(skip_serializing_if = "Option::is_none")]
+	pub _id: ObjectId,
+    #[serde(rename = "diskId")]
+	pub disk_id: ObjectId, // Disk serial number
+	pub startup: Event,
+    // #[serde(rename = "periodInfo")]
+	// period_info: PeriodInfo,
+	pub shutdown: Event, // null until disk shutdown
+    #[serde(rename = "periodInfo")]
+	pub period_info: PeriodInfo // Disk consumption since disk startup, null until disk shutdown
 }
