@@ -17,7 +17,9 @@ mod tests {
             file_id: FILE_IDS[0].to_string(),
             user_id: USER_ID.to_string(),
             disk_id: DISK_ID.to_string(),
-            content: FILE_CONTENTS[0].to_string().into_bytes()};
+            content: FILE_CONTENTS[0].to_string().into_bytes(),
+            store_type: None,
+        };
         let vault = MaestroVault::new();
         let request = tonic::Request::new(request_content);
         let result = vault.upload_file(request).await;
@@ -40,12 +42,16 @@ mod tests {
                     file_id: FILE_IDS[1].to_string(),
                     user_id: USER_ID.to_string(),
                     disk_id: DISK_ID.to_string(),
-                    content: FILE_CONTENTS[1].to_string().into_bytes()},
+                    content: FILE_CONTENTS[1].to_string().into_bytes(),
+                    store_type: None,
+                },
                 maestro_vault::UploadFileRequest{
                     file_id: FILE_IDS[2].to_string(),
                     user_id: USER_ID.to_string(),
                     disk_id: DISK_ID.to_string(),
-                    content: FILE_CONTENTS[2].to_string().into_bytes()},
+                    content: FILE_CONTENTS[2].to_string().into_bytes(),
+                    store_type: None,
+                },
             ]
         };
         let vault = MaestroVault::new();

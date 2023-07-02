@@ -73,7 +73,6 @@ impl MongoRepo {
 
     pub async fn update_disk_logs(&self, disk_update: ApproxUserDiskUpdate, disk_info: ApproxUserDiskInfo)
     {
-
         let disk_update = self.disk_update_insert(disk_update).await;
 
         match disk_update {
