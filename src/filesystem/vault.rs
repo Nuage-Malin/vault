@@ -6,8 +6,9 @@ use std::any::Any;
 use std::io::Write;
 
 use super::UserDiskFilesystem;
+use super::MyError;
 
-type Result<T> = std::result::Result<T, Box<dyn Error>>;
+type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 
 #[derive(Debug)]
 pub struct VaultFS{}
@@ -15,15 +16,15 @@ pub struct VaultFS{}
 
 impl filesystem::UserDiskFilesystem for VaultFS {
     // todo create and move to directory 'vault'
-    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, _: Option<i32>) -> Option<Box<dyn Error>> {
+    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, _: Option<i32>) -> Option<Box<dyn Error + Send>> {
         let filepath = self.get_default_filepath(&file_id);
         // todo create directory
-        println!("filepath : {}", filepath);
+        // println!("filepath : {}", filepath);
         match std::env::current_dir() {
-            Ok(cur) => {
-                if let Some(act_dir) = cur.to_str() {
-                    println!("pwd : {}", act_dir);
-                }
+            Ok(_cur) => {
+                // if let Some(act_dir) = cur.to_str() {
+                    // println!("pwd : {}", act_dir);
+                // }
             }
             Err(err) => {
                 eprintln!("error from current dir : {}", err);
@@ -38,12 +39,12 @@ impl filesystem::UserDiskFilesystem for VaultFS {
                 match res {
                     Ok(_) => {}
                     Err(err) => {
-                        return Some(Box::new(err));
+                        return Some(Box::new(MyError::new(&(err.to_string()))));
                     }
                 }
             }
             Err(err) => {
-                return Some(Box::new(err));
+                return Some(Box::new(MyError::new(&(err.to_string()))));
             }
         }
         if let Some(err) = self.create_dir(&self.get_user_filepath(&user_id, "")) {
@@ -52,31 +53,54 @@ impl filesystem::UserDiskFilesystem for VaultFS {
         if let Some(err) = self.create_symlink( &(String::from("../../") + &filepath), &self.get_user_filepath(&user_id, &file_id)) {
             println!("hello error 3");
             println!("{}, {}", &filepath, self.get_user_filepath(&user_id, &file_id));
-
-            return Some(err);
+            // Obtain the error kind
+            if let Some(error_kind) = err
+                .source()
+                .and_then(|err| err.downcast_ref::<std::io::Error>())
+                .map(|io_error| io_error.kind())
+            {
+                match error_kind {
+                    std::io::ErrorKind::AlreadyExists => {}
+                    _ => {
+                        return Some(Box::new(MyError::new(&(err.to_string()))));
+                    }
+                }
+            }
         }
         if let Some(err) = self.create_dir(&self.get_disk_filepath(&disk_id, "")) {
-            return Some(err);
+            return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Some(err) = self.create_symlink( &(String::from("../../") + &filepath), &self.get_disk_filepath(&disk_id, &file_id)) {
+        if let Some(err) = self.create_symlink(&(String::from("../../") + &filepath), &self.get_disk_filepath(&disk_id, &file_id)) {
             println!("hello error 4");
             println!("{}, {}", &filepath, self.get_disk_filepath(&user_id, &file_id));
-
-            return Some(err);
+            // Obtain the error kind
+            if let Some(error_kind) = err
+                .source()
+                .and_then(|err| err.downcast_ref::<std::io::Error>())
+                .map(|io_error| io_error.kind())
+            {
+                match error_kind {
+                    std::io::ErrorKind::AlreadyExists => {}
+                    _ => {
+                        return Some(Box::new(MyError::new(&(err.to_string()))));
+                    }
+                }
+            }
         }
         None
     }
 
-    fn remove_file(&self, file_id: &str) -> Option<Box<dyn Error>> {
-        let res = std::fs::remove_file(self.get_default_filepath(file_id));
-        // todo remove symlink(s)
-
-        match res {
-            Ok(_) => {None}
-            Err(err) => {
-                return Some(Box::new(err));
-            }
+    fn remove_file(&self, file_id: &str, user_id: &str, disk_id: &str) -> Option<Box<dyn Error + Send>> {
+        if let Err(err) = std::fs::remove_file(self.get_default_filepath(&file_id)) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
         }
+        if let Err(err) = std::fs::remove_file(&self.get_disk_filepath(&disk_id, &file_id)) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
+        }
+        if let Err(err) = std::fs::remove_file(&self.get_user_filepath(&user_id, &file_id)) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
+        }
+        return None
     }
 
     fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error>> {
@@ -86,7 +110,8 @@ impl filesystem::UserDiskFilesystem for VaultFS {
         match res {
             Ok(_) => {None}
             Err(err) => {
-                return Some(Box::new(err));
+                return Some(Box::new(MyError::new(&(err.to_string()))));
+
             }
         }
     }
@@ -160,6 +185,8 @@ impl VaultFS {
 
         vault_fs
     }
+    // fn get_user_symlink_base_path(&self) {
+    // }
 }
 
 impl Drop for VaultFS {

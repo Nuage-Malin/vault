@@ -6,8 +6,9 @@ use std::error::Error;
 use std::any::Any;
 
 use super::UserDiskFilesystem;
+use super::MyError;
 
-type Result<T> = std::result::Result<T, Box<dyn Error>>;
+type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 
 #[derive(Debug)]
 pub struct CacheFS {
@@ -36,7 +37,7 @@ impl CacheFS {
 }
 
 impl filesystem::UserDiskFilesystem for CacheFS {
-    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<i32>) -> Option<Box<dyn Error>>{
+    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<i32>) -> Option<Box<dyn Error + Send>>{
         let filepath = self.get_default_filepath(file_id);
         let store_filepath: String;
         let mut ret = std::fs::write(&filepath, &content);
@@ -44,7 +45,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         match ret {
             Ok(_) => {}
             Err(err) => {
-                return Some(Box::new(err));
+                return Some(Box::new(MyError::new(&(err.to_string()))));
             }
         }
         if let Some(store) = storage_type {
@@ -55,7 +56,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
                 match ret {
                     Ok(_) => {}
                     Err(err) => {
-                        return Some(Box::new(err));
+                        return Some(Box::new(MyError::new(&(err.to_string()))));
                     }
                 }
             }
@@ -64,27 +65,26 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         match ret {
             Ok(_) => {}
             Err(err) => {
-                return Some(Box::new(err));
+                return Some(Box::new(MyError::new(&(err.to_string()))));
             }
         }
         ret = std::os::unix::fs::symlink(&filepath, self.get_disk_filepath(disk_id, file_id) + "/" + file_id);
         match ret {
             Ok(_) => {}
             Err(err) => {
-                return Some(Box::new(err));
+                return Some(Box::new(MyError::new(&(err.to_string()))));
             }
         }
         None
     }
 
-    fn remove_file(&self, file_id: &str) -> Option<Box<dyn Error>>{
+    fn remove_file(&self, file_id: &str, user_id: &str, disk_id: &str) -> Option<Box<dyn Error + Send>>{
         let ret = std::fs::remove_file(self.get_default_filepath(file_id));
-        // todo remove symlink(s)
 
         match ret {
             Ok(_) => {None}
             Err(err) => {
-                return Some(Box::new(err));
+                return Some(Box::new(MyError::new(&(err.to_string()))));
             }
         }
     } // todo remove user_id (use symlink instead of full path) or put optional
@@ -96,7 +96,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         match ret {
             Ok(_) => {None}
             Err(err) => {
-                return Some(Box::new(err));
+                return Some(Box::new(MyError::new(&(err.to_string()))));
             }
         }
     }

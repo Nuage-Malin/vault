@@ -2,14 +2,16 @@
 mod vault;
 mod cache;
 mod tests;
+pub mod error;
 
+use error::MyError;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::any::Any;
 use std::path::Path;
 
-type Result<T> = std::result::Result<T, Box<dyn Error>>;
+type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 
 pub trait UserDiskFilesystem: Send + Sync {
     // Associated function signature; `Self` refers to the implementor type.
@@ -18,9 +20,9 @@ pub trait UserDiskFilesystem: Send + Sync {
     // todo replicate methods to handle multiple files at once
 
     // set
-    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<i32>) -> Option<Box<dyn Error>>;
+    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<i32>) -> Option<Box<dyn Error + Send>>;
 
-    fn remove_file(&self, file_id: &str) -> Option<Box<dyn Error>>; // todo remove user_id (use symlink instead of full path) or put optional
+    fn remove_file(&self, file_id: &str, user_id: &str, disk_id: &str) -> Option<Box<dyn Error + Send>>; // todo remove user_id (use symlink instead of full path) or put optional
 
     fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error>>;
 
@@ -156,10 +158,8 @@ let mut path = PathBuf::new();
                 }
             }
         } */
-        if let Err(err) = std::os::unix::fs::symlink(original,  link) {
-            println!("hello wtf");
-            println!("{}, {}", original, link);
-            return Some(Box::new(err));
+        if let Err(err) = std::os::unix::fs::symlink(original, link) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         None
     }

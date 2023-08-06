@@ -18,7 +18,7 @@ pub struct MongoRepo {
 impl MongoRepo {
     pub async fn init() -> Self {
         let client_uri = env::var("MONGODB_URI").expect("MONGODB_URI not set.");
-        println!("{}", client_uri);
+        // println!("{}", client_uri);
 
         let client = Client::with_uri_str(client_uri).await.unwrap();
         let db = client.database("logs");
@@ -26,10 +26,10 @@ impl MongoRepo {
         let user_disk_update: Collection<UserDiskUpdate> = db.collection("userDiskUpdate");
         let disk_wakeup: Collection<DiskWakeup> = db.collection("diskWakeup");
 
-        println!("fetching databases...");
-        for val in client.list_databases(None, None).await.unwrap() {
-            println!("{:?}", val);
-        }
+        // println!("fetching databases...");
+        // for val in client.list_databases(None, None).await.unwrap() {
+            // println!("{:?}", val);
+        // }
 
         MongoRepo { user_disk_info, user_disk_update, disk_wakeup}
     }
@@ -56,6 +56,7 @@ impl MongoRepo {
             .build();
         let disk_wakeup = self.disk_wakeup.find_one(
             doc!{"diskId": disk_update.disk_id, /* "shutdown": None */}, options
+            // error here : disk_update.disk_id is object id but in db is disk id
         ).await?
         .expect("No previous disk wake up found");
         let mut system = sysinfo::System::new_all();

@@ -63,7 +63,7 @@ fn _2_get_file_content_test() {
 
 #[test]
 fn /* todo give a bigger number (execute at the end) */ _9_remove_file_test()  {
-    FS.remove_file(fs_tests::FILE_IDS[0]);
+    FS.remove_file(fs_tests::FILE_IDS[0], fs_tests::USER_ID, fs_tests::DISK_ID);
 
     let file_exists = Path::new(&FS.get_default_filepath(fs_tests::FILE_IDS[0])).exists();
 

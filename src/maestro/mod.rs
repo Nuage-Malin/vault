@@ -10,7 +10,6 @@ use crate::stats;
 use crate::filesystem;
 use crate::models::users_disks::{ApproxUserDiskUpdate, ApproxUserDiskInfo, DiskAction};
 
-
 #[derive(Debug, Default)]
 pub struct MaestroVault {
     filesystem: Box<dyn filesystem::UserDiskFilesystem>,
@@ -23,10 +22,7 @@ impl MaestroVault {
     MaestroVault {filesystem: custom_fs}
   }
 
-  fn update_logs(&self, file_id: &str, user_id: &str, disk_id: &str, action: DiskAction) {
-    let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
-
-    rt.block_on(async {
+  async fn update_logs(&self, file_id: &str, user_id: &str, disk_id: &str, action: DiskAction) {
       let db = stats::users_disks::MongoRepo::init().await;
 
       db.update_disk_logs(
@@ -41,10 +37,12 @@ impl MaestroVault {
           user_id: ObjectId::from_str(user_id).unwrap()
         }
       ).await;
-    });
+//
+    // });
   }
 }
 
+/*
 fn dir_exists(path: String) -> bool { // todo put that into filesystem
   // TODO create dir by maestro once,
   //  do not call this method everytime upload_file is called
@@ -56,7 +54,7 @@ fn dir_exists(path: String) -> bool { // todo put that into filesystem
   }
 
   return true;
-}
+} */
 
 #[tonic::async_trait]
 impl MaestroVaultService for MaestroVault {
@@ -84,7 +82,7 @@ impl MaestroVaultService for MaestroVault {
      *
      * choose interface at compile time or with env variable
      */
-    let ret: Option<Box<dyn Error>> = self.filesystem.create_file(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), my_request.content, my_request.store_type);
+    let ret: Option<Box<dyn Error + Send>> = self.filesystem.create_file(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), my_request.content, my_request.store_type);
       // let ret = std::fs::write(my_path.to_string() + "/" + my_request.file_id.as_str(), my_request.content);
 
     match ret { // todo change return type or match branches
@@ -92,7 +90,7 @@ impl MaestroVaultService for MaestroVault {
         Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()))
       }
       None => {
-        self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::CREATE);
+        self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::CREATE).await;
         Ok(tonic::Response::new(maestro_vault::UploadFileStatus{}))
       }
     }
@@ -116,7 +114,7 @@ impl MaestroVaultService for MaestroVault {
 
         match ret {
             None => {
-                self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::CREATE);
+                self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::CREATE).await;
             }
             Some(err) => {
                 eprintln!("{}", err); // todo does that work ?
@@ -136,12 +134,12 @@ impl MaestroVaultService for MaestroVault {
     let my_request: maestro_vault::RemoveFileRequest = request.into_inner();
     let status = maestro_vault::RemoveFileStatus{};
 
-    let ret = self.filesystem.remove_file(my_request.file_id.as_str());
+    let ret = self.filesystem.remove_file(&my_request.file_id, &my_request.user_id, &my_request.disk_id);
     // let ret = std::fs::remove_file(String::from(my_request.user_id.as_str()) + "/" + my_request.file_id.as_str());
 
     match ret {
       None => {
-        self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::DELETE);
+        self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::DELETE).await;
       }
       Some(err) => {
         return Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()));
@@ -160,13 +158,13 @@ impl MaestroVaultService for MaestroVault {
     let mut status = maestro_vault::RemoveFilesStatus{file_id_failures: vec!()};
 
     for file_id in my_requests.file_id {
-      let ret = self.filesystem.remove_file(file_id.as_str());
+      let ret = self.filesystem.remove_file(&file_id, &my_requests.user_id, &my_requests.disk_id);
 
       // let ret = std::fs::remove_file(String::from(my_requests.user_id.as_str()) + "/" + file_id.as_str());
 
       match ret {
         None => {
-          self.update_logs(file_id.as_str(), my_requests.user_id.as_str(), my_requests.disk_id.as_str(), DiskAction::DELETE);
+          self.update_logs(file_id.as_str(), my_requests.user_id.as_str(), my_requests.disk_id.as_str(), DiskAction::DELETE).await;
         },
         Some(_) => {
           // todo print err
@@ -191,7 +189,7 @@ impl MaestroVaultService for MaestroVault {
 
     match ret {
       Ok(read_res) => {
-        self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::READ);
+        self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::READ).await;
 
         Ok(tonic::Response::new(maestro_vault::DownloadFileStatus{content: read_res}))
       },
@@ -216,7 +214,7 @@ impl MaestroVaultService for MaestroVault {
 
       match ret {
         Ok(read_res) => {
-          self.update_logs(file.file_id.as_str(), file.user_id.as_str(), file.disk_id.as_str(), DiskAction::READ);
+          self.update_logs(file.file_id.as_str(), file.user_id.as_str(), file.disk_id.as_str(), DiskAction::READ).await;
 
           status.files.push(maestro_vault::DownloadFilesElemStatus{file_id: file.file_id, content: read_res})
         },
