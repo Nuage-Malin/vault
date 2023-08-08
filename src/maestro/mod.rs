@@ -10,16 +10,22 @@ use crate::stats;
 use crate::filesystem;
 use crate::models::users_disks::{ApproxUserDiskUpdate, ApproxUserDiskInfo, DiskAction};
 
+
 #[derive(Debug, Default)]
 pub struct MaestroVault {
     filesystem: Box<dyn filesystem::UserDiskFilesystem>,
 }
 
 impl MaestroVault {
-  pub fn new() -> MaestroVault {
-    let custom_fs: Box<dyn filesystem::UserDiskFilesystem> = filesystem::select_filesystem();
-
-    MaestroVault {filesystem: custom_fs}
+  pub fn new() -> Result<MaestroVault, Box<dyn Error + Send>> {
+    match filesystem::select_filesystem() {
+      Ok(custom_fs) => {
+        Ok(MaestroVault{filesystem: custom_fs})
+      }
+      Err(err) => {
+        Err(err)
+      }
+    }
   }
 
   async fn update_logs(&self, file_id: &str, user_id: &str, disk_id: &str, action: DiskAction) {

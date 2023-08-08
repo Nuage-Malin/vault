@@ -9,7 +9,7 @@ use crate::filesystem::{self, vault::VaultFS, cache::CacheFS};
 use std::env;
 
 #[test]
-fn select_filesystem_default() {
+fn _0_select_filesystem_default() {
     env::set_var("EXEC_TYPE", "");
 
     let fs: Box<dyn filesystem::UserDiskFilesystem> = filesystem::select_filesystem();
@@ -22,7 +22,7 @@ fn select_filesystem_default() {
 }
 
 #[test]
-fn select_filesystem_vault() {
+fn _0_select_filesystem_vault() {
     env::set_var("EXEC_TYPE", "vault");
 
     let fs: Box<dyn filesystem::UserDiskFilesystem> = filesystem::select_filesystem();
@@ -35,7 +35,7 @@ fn select_filesystem_vault() {
 }
 
 #[test]
-fn select_filesystem_cache() {
+fn _0_select_filesystem_cache() {
     env::set_var("EXEC_TYPE", "cache");
 
     let fs: Box<dyn filesystem::UserDiskFilesystem> = filesystem::select_filesystem();

@@ -13,7 +13,7 @@ use std::path::Path;
 use lazy_static::lazy_static;
 
 lazy_static! {
-    static ref FS: VaultFS = VaultFS::new();
+    static ref FS: VaultFS = VaultFS::new().expect("Error in vault filesystem instantiation");
 }
 
 #[test]

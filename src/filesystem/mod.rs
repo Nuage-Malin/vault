@@ -46,7 +46,8 @@ pub trait UserDiskFilesystem: Send + Sync {
             Ok(cur) => {
                 if let Some(act_dir) = cur.file_name().unwrap().to_str() {
                     if act_dir != home_dir {
-                        let mut res = std::fs::create_dir(&home_dir);
+                        let mut res = std::fs::create_dir(&home_dir); // create dir if doesn't exist
+
                         match res {
                             Ok(_) => {}
                             Err(err) => {
@@ -150,6 +151,7 @@ let mut path = PathBuf::new();
     // create_dir_symlink
     // If does not exist, create a directory (taking the base directory of the link parameter),
     //  then create a symbolic link into it
+
     fn create_symlink(&self, original: &str, link: &str) -> Option<Box<dyn Error>> {
         /* if let Some(link_parent_dir) = Path::new(&link).parent() {
             if !link_parent_dir.exists() {
@@ -159,11 +161,47 @@ let mut path = PathBuf::new();
             }
         } */
         if let Err(err) = std::os::unix::fs::symlink(original, link) {
+            if let Some(error_kind) = err // Obtain the error kind
+                .source()
+                .and_then(|err| err.downcast_ref::<std::io::Error>())
+                .map(|io_error| io_error.kind())
+            {
+                match error_kind {
+                    std::io::ErrorKind::AlreadyExists => { // if error is 'already exists', ignore it
+                        return None
+                    }
+                    _ => {}
+                }
+            }
             return Some(Box::new(MyError::new(&(err.to_string()))));
+        } else {
+            return None;
         }
-        None
     }
 
+
+    fn is_cur_dir_home_dir(&self) -> bool {
+        match std::env::current_dir() {
+            Ok(cur) => {
+                if let Some(act_dir) = cur.to_str() {
+                    let cur_path = Path::new(act_dir);
+
+                    if let Some(basename) = cur_path.file_name() {
+                        if let Some(basename) = basename.to_str() {
+                            if basename == self.get_home_dir() {
+                                return true;
+                            }
+                        }
+                    }
+                    // println!("pwd : {}", act_dir); // todo remove
+                }
+            }
+            _ => {
+                return false;
+            }
+        }
+        return false;
+    }
 ///
     fn as_any(&self) -> &dyn Any;
 
@@ -182,13 +220,41 @@ impl Default for Box<dyn UserDiskFilesystem> {
     }
 }
 
-pub fn select_filesystem() -> Box<dyn UserDiskFilesystem> {
+pub fn select_filesystem() -> Result<Box<dyn UserDiskFilesystem>> {
     // if // env var cache then cache filesystem, else vault
     let exec_type = env::var("EXEC_TYPE").expect("EXEC_TYPE not set.");
 
     match exec_type.as_str() {
-        "vault" => {Box::new(vault::VaultFS::new())}
-        "cache" => {Box::new(cache::CacheFS::new())}
-        _ => {Box::new(vault::VaultFS::new())}
+        "vault" => {
+            match vault::VaultFS::new() {
+                Ok(vault) => {
+                    return Ok(Box::new(vault));
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            }
+
+        }
+        "cache" => {
+            match cache::CacheFS::new() {
+                Ok(cache) => {
+                    return Ok(Box::new(cache));
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            }
+        }
+        _ => {
+            match vault::VaultFS::new() {
+                Ok(vault) => {
+                    return Ok(Box::new(vault));
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            }
+        }
     }
 }

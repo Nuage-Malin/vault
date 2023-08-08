@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::any::Any;
 use std::io::Write;
+// use std::path::Path;
 
 use super::UserDiskFilesystem;
 use super::MyError;
@@ -13,22 +14,14 @@ type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 #[derive(Debug)]
 pub struct VaultFS{}
 
-
 impl filesystem::UserDiskFilesystem for VaultFS {
     // todo create and move to directory 'vault'
     fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, _: Option<i32>) -> Option<Box<dyn Error + Send>> {
         let filepath = self.get_default_filepath(&file_id);
         // todo create directory
         // println!("filepath : {}", filepath);
-        match std::env::current_dir() {
-            Ok(_cur) => {
-                // if let Some(act_dir) = cur.to_str() {
-                    // println!("pwd : {}", act_dir);
-                // }
-            }
-            Err(err) => {
-                eprintln!("error from current dir : {}", err);
-            }
+        if !self.is_cur_dir_home_dir() {
+            return Some(Box::new(MyError::new("Current directory should be home directory of the filesystem")));
         }
         let create_res = std::fs::File::create(&filepath);
         let res: std::io::Result<()>;
@@ -47,45 +40,11 @@ impl filesystem::UserDiskFilesystem for VaultFS {
                 return Some(Box::new(MyError::new(&(err.to_string()))));
             }
         }
-        if let Some(err) = self.create_dir(&self.get_user_filepath(&user_id, "")) {
-            return Some(err);
-        }
         if let Some(err) = self.create_symlink( &(String::from("../../") + &filepath), &self.get_user_filepath(&user_id, &file_id)) {
-            println!("hello error 3");
-            println!("{}, {}", &filepath, self.get_user_filepath(&user_id, &file_id));
-            // Obtain the error kind
-            if let Some(error_kind) = err
-                .source()
-                .and_then(|err| err.downcast_ref::<std::io::Error>())
-                .map(|io_error| io_error.kind())
-            {
-                match error_kind {
-                    std::io::ErrorKind::AlreadyExists => {}
-                    _ => {
-                        return Some(Box::new(MyError::new(&(err.to_string()))));
-                    }
-                }
-            }
-        }
-        if let Some(err) = self.create_dir(&self.get_disk_filepath(&disk_id, "")) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         if let Some(err) = self.create_symlink(&(String::from("../../") + &filepath), &self.get_disk_filepath(&disk_id, &file_id)) {
-            println!("hello error 4");
-            println!("{}, {}", &filepath, self.get_disk_filepath(&user_id, &file_id));
-            // Obtain the error kind
-            if let Some(error_kind) = err
-                .source()
-                .and_then(|err| err.downcast_ref::<std::io::Error>())
-                .map(|io_error| io_error.kind())
-            {
-                match error_kind {
-                    std::io::ErrorKind::AlreadyExists => {}
-                    _ => {
-                        return Some(Box::new(MyError::new(&(err.to_string()))));
-                    }
-                }
-            }
+            return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         None
     }
@@ -174,17 +133,22 @@ impl filesystem::UserDiskFilesystem for VaultFS {
 }
 
 impl VaultFS {
-    pub fn new() -> Self {
-        // todo create dir if does not exist
+    pub fn new() -> Result<Self> {
         let vault_fs = VaultFS{};
 
         vault_fs.cd_home_dir();
-        std::fs::create_dir(vault_fs.get_default_filepath(""));
-        std::fs::create_dir(vault_fs.get_user_filepath("", "")); // todo handle error ?
-        std::fs::create_dir(vault_fs.get_disk_filepath("", "")); // todo if error return None ?
-
-        vault_fs
+        if let Some(err) = vault_fs.create_dir(&vault_fs.get_default_filepath("")) {
+            return Err(err);
+        }
+        if let Some(err) = vault_fs.create_dir(&vault_fs.get_user_filepath("", "")) {
+            return Err(err);
+        }
+        if let Some(err) = vault_fs.create_dir(&vault_fs.get_disk_filepath("", "")) {
+            return Err(err);
+        }
+        return Ok(vault_fs);
     }
+
     // fn get_user_symlink_base_path(&self) {
     // }
 }

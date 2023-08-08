@@ -15,10 +15,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let address: Ipv6Addr = address_str.parse().expect("VAULT_ADDRESS has wrong format");
 	let port: u16 = port_str.parse().expect("VAULT_PORT has wrong format");
 	let vault_address: SocketAddr = SocketAddr::V6(SocketAddrV6::new(address, port, 0, 0));
-	let my_maestro_service = maestro::MaestroVault::new();
 
-	Server::builder().add_service(MaestroVaultServiceServer::new(my_maestro_service))
-	  .serve(vault_address)
-	  .await?;
+	match maestro::MaestroVault::new() {
+		Ok(maestro_vault_service) => {
+			Server::builder().add_service(MaestroVaultServiceServer::new(maestro_vault_service))
+			.serve(vault_address)
+			.await?;
+		}
+		Err(err) => {
+			eprintln!("{}", err.to_string());
+		}
+	}
 	Ok(())
 }

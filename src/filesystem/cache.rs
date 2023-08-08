@@ -1,9 +1,10 @@
-use crate::{filesystem};
+use crate::filesystem;
 use crate::models::grpc::maestro_vault;
 
 use std::collections::HashMap;
 use std::error::Error;
 use std::any::Any;
+use std::io::Write;
 
 use super::UserDiskFilesystem;
 use super::MyError;
@@ -17,7 +18,7 @@ pub struct CacheFS {
 
 impl CacheFS {
 
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self> {
         // todo create and go into cache_fs dir
         let mut map: HashMap<i32, String> = HashMap::new();
         map.insert(maestro_vault::StorageType::UploadQueue.into(), "upload/".to_string());
@@ -26,12 +27,17 @@ impl CacheFS {
         let cache_fs = CacheFS{store_paths: map};
 
         cache_fs.cd_home_dir();
+        if let Some(err) = cache_fs.create_dir(&cache_fs.get_default_filepath("")) {
+            return Err(err);
+        }
+        if let Some(err) = cache_fs.create_dir(&cache_fs.get_user_filepath("", "")) {
+            return Err(err);
+        }
+        if let Some(err) = cache_fs.create_dir(&cache_fs.get_disk_filepath("", "")) {
+            return Err(err);
+        }
 
-        std::fs::create_dir(cache_fs.get_default_filepath(""));
-        std::fs::create_dir(cache_fs.get_user_filepath("", "")); // todo handle error ?
-        std::fs::create_dir(cache_fs.get_disk_filepath("", "")); // todo if error return None ?
-
-        cache_fs
+        return Ok(cache_fs);
     }
 
 }
@@ -39,41 +45,42 @@ impl CacheFS {
 impl filesystem::UserDiskFilesystem for CacheFS {
     fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<i32>) -> Option<Box<dyn Error + Send>>{
         let filepath = self.get_default_filepath(file_id);
-        let store_filepath: String;
-        let mut ret = std::fs::write(&filepath, &content);
 
-        match ret {
-            Ok(_) => {}
-            Err(err) => {
-                return Some(Box::new(MyError::new(&(err.to_string()))));
+        if !self.is_cur_dir_home_dir() { // todo useless if we check it in class instantiation (function `new`) ?
+            return Some(Box::new(MyError::new("Current directory should be home directory of the filesystem")));
+        }
+        { // create and write file
+            let ret = std::fs::File::create(&filepath);
+
+            match ret {
+                Ok(mut file) => {
+                    let res = file.write_all(&content);
+                    match res {
+                        Ok(_) => {}
+                        Err(err) => {
+                            return Some(Box::new(MyError::new(&(err.to_string()))));
+                        }
+                    }
+                }
+                Err(err) => {
+                    return Some(Box::new(MyError::new(&(err.to_string()))));
+                }
             }
         }
         if let Some(store) = storage_type {
             if let Some(path_start) = self.store_paths.get(&store) {
+                let store_filepath = path_start.to_string() + &filepath; // todo make that a method and put the method into the map
 
-                store_filepath = path_start.to_string() + &filepath; // todo make that a method and put the method into the map
-                ret = std::os::unix::fs::symlink(&filepath,  store_filepath);
-                match ret {
-                    Ok(_) => {}
-                    Err(err) => {
-                        return Some(Box::new(MyError::new(&(err.to_string()))));
-                    }
+                if let Some(err) = self.create_symlink( &filepath, &store_filepath) {
+                    return Some(Box::new(MyError::new(&(err.to_string()))));
                 }
             }
         }
-        ret = std::os::unix::fs::symlink(&filepath,  self.get_user_filepath(user_id, file_id) );
-        match ret {
-            Ok(_) => {}
-            Err(err) => {
-                return Some(Box::new(MyError::new(&(err.to_string()))));
-            }
+        if let Some(err) = self.create_symlink( &filepath, &self.get_user_filepath(user_id, file_id)) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        ret = std::os::unix::fs::symlink(&filepath, self.get_disk_filepath(disk_id, file_id) + "/" + file_id);
-        match ret {
-            Ok(_) => {}
-            Err(err) => {
-                return Some(Box::new(MyError::new(&(err.to_string()))));
-            }
+        if let Some(err) = self.create_symlink( &filepath, &(self.get_disk_filepath(disk_id, file_id) + "/" + file_id)) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         None
     }
