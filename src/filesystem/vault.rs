@@ -17,19 +17,14 @@ pub struct VaultFS{}
 impl filesystem::UserDiskFilesystem for VaultFS {
     // todo create and move to directory 'vault'
     fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, _: Option<i32>) -> Option<Box<dyn Error + Send>> {
-        let filepath = self.get_default_filepath(&file_id);
-        // todo create directory
-        // println!("filepath : {}", filepath);
         if !self.is_cur_dir_home_dir() {
             return Some(Box::new(MyError::new("Current directory should be home directory of the filesystem")));
         }
-        let create_res = std::fs::File::create(&filepath);
-        let res: std::io::Result<()>;
+        let filepath = self.get_default_filepath(&file_id);
 
-        match create_res {
+        match std::fs::File::create(&filepath) {
             Ok(mut file) => {
-                res = file.write_all(&content);
-                match res {
+                match file.write_all(&content) {
                     Ok(_) => {}
                     Err(err) => {
                         return Some(Box::new(MyError::new(&(err.to_string()))));

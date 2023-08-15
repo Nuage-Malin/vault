@@ -153,13 +153,6 @@ let mut path = PathBuf::new();
     //  then create a symbolic link into it
 
     fn create_symlink(&self, original: &str, link: &str) -> Option<Box<dyn Error>> {
-        /* if let Some(link_parent_dir) = Path::new(&link).parent() {
-            if !link_parent_dir.exists() {
-                if let Err(err) = std::fs::create_dir(link_parent_dir) {
-                    return Some(Box::new(err));
-                }
-            }
-        } */
         if let Err(err) = std::os::unix::fs::symlink(original, link) {
             if let Some(error_kind) = err // Obtain the error kind
                 .source()
@@ -167,12 +160,17 @@ let mut path = PathBuf::new();
                 .map(|io_error| io_error.kind())
             {
                 match error_kind {
-                    std::io::ErrorKind::AlreadyExists => { // if error is 'already exists', ignore it
-                        return None
+                    std::io::ErrorKind::AlreadyExists => {
+                        return None // if error is 'already exists', ignore it
                     }
                     _ => {}
                 }
+            } else if let Some(kind) = err.raw_os_error() {
+                if kind == 17 /* os error : file exists  */{
+                    return None;
+                }
             }
+            eprintln!("\n6\n");
             return Some(Box::new(MyError::new(&(err.to_string()))));
         } else {
             return None;

@@ -40,29 +40,46 @@ impl CacheFS {
         return Ok(cache_fs);
     }
 
+
+    fn get_file_content_from_filepath(&self, path: &str) -> Result<Vec<u8>> {
+        let ret = std::fs::read(path);
+
+        match ret {
+            Ok(content) => {
+                Ok(content)
+            }
+            Err(err) => {
+                Err(Box::new(err))
+            }
+        }
+    }
+
+    fn get_file_from_link(&self, path: &str) -> Result<&str> {
+
+    }
+
 }
 
 impl filesystem::UserDiskFilesystem for CacheFS {
     fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<i32>) -> Option<Box<dyn Error + Send>>{
-        let filepath = self.get_default_filepath(file_id);
-
         if !self.is_cur_dir_home_dir() { // todo useless if we check it in class instantiation (function `new`) ?
             return Some(Box::new(MyError::new("Current directory should be home directory of the filesystem")));
         }
-        { // create and write file
-            let ret = std::fs::File::create(&filepath);
+        let filepath = self.get_default_filepath(file_id);
 
-            match ret {
+        { // create and write file
+            match std::fs::File::create(&filepath) {
                 Ok(mut file) => {
-                    let res = file.write_all(&content);
-                    match res {
+                    match file.write_all(&content) {
                         Ok(_) => {}
                         Err(err) => {
+                            eprintln!("1");
                             return Some(Box::new(MyError::new(&(err.to_string()))));
                         }
                     }
                 }
                 Err(err) => {
+                    eprintln!("2");
                     return Some(Box::new(MyError::new(&(err.to_string()))));
                 }
             }
@@ -72,14 +89,26 @@ impl filesystem::UserDiskFilesystem for CacheFS {
                 let store_filepath = path_start.to_string() + &filepath; // todo make that a method and put the method into the map
 
                 if let Some(err) = self.create_symlink( &filepath, &store_filepath) {
+                    eprintln!("3");
                     return Some(Box::new(MyError::new(&(err.to_string()))));
                 }
             }
         }
-        if let Some(err) = self.create_symlink( &filepath, &self.get_user_filepath(user_id, file_id)) {
+        // todo create directory for user and disk (each id has to have a directory)
+        if let Some(err) = self.create_dir(&(self.get_user_filepath(user_id, ""))) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Some(err) = self.create_symlink( &filepath, &(self.get_disk_filepath(disk_id, file_id) + "/" + file_id)) {
+        if let Some(err) = self.create_symlink( &filepath, &(self.get_user_filepath(user_id, file_id))) {
+            eprintln!("4 {}, {}", filepath, &(self.get_user_filepath(user_id, file_id)));
+
+            return Some(Box::new(MyError::new(&(err.to_string()))));
+        }
+        if let Some(err) = self.create_dir(&(self.get_disk_filepath(disk_id, ""))) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
+        }
+        if let Some(err) = self.create_symlink( &filepath, &(self.get_disk_filepath(disk_id, file_id))) {
+                    eprintln!("5 {}, {}", filepath, &(self.get_disk_filepath(disk_id, file_id)));
+
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         None
@@ -109,18 +138,13 @@ impl filesystem::UserDiskFilesystem for CacheFS {
     }
 
     // get
-    fn get_file_content(&self, file_id: &str) -> Result<Vec<u8>>{
-        let ret = std::fs::read(self.get_default_filepath(file_id));
 
-        match ret {
-            Ok(content) => {
-                Ok(content)
-            }
-            Err(err) => {
-                Err(Box::new(err))
-            }
-        }
+    fn get_file_content(&self, file_id: &str) -> Result<Vec<u8>> {
+        let path = self.get_default_filepath(file_id);
+
+        self.get_file_content_from_filepath(&path)
     }
+
     // get_disk_files returns map with key: file_id as string, value: content as vector of u8
     fn get_disk_files(&self, disk_id: &str) -> Result<HashMap<String, Vec<u8>>>{
         // std::fs::read_link(path)
@@ -129,9 +153,34 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         if let Ok(entries) = std::fs::read_dir(self.get_disk_filepath(disk_id, "")) {
             for entry in entries {
                 if let Ok(file) = entry {
-                    let link = std::fs::read_link(file.path());
+                    println!("file path : {}", file.path());
+                    println!("file path : {}", basename(file.path()));
+                    let basename = self.get_file_from_link(file.path()); /* method that do basename for user and disk filepaths */
 
-                    print!("{}", link.unwrap().display());
+
+                    /* todo remove rest of functinon,
+                    instead have the id taken out of the link path and use it to get_file_content() */
+                    match std::fs::read_link(file.path()) {
+                        Ok(link) => {
+                            // print!("{}", link.unwrap().display()); // todo remove once tested
+                            if let Some(link) = link.to_str() {
+                                match self.get_file_content_from_filepath(link) {
+                                    Ok(content) => {
+                                        files.insert(/* filename of link */, content)
+                                    }
+                                    Err(err) => {
+                                        return Err(err);
+                                    }
+                                }
+                            } else {
+                                /* return error */
+                            }
+                        }
+                        Err(err) => {
+
+                        }
+                    }
+
                     // todo finish
                 }
 
