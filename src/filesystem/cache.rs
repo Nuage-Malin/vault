@@ -5,9 +5,11 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::any::Any;
 use std::io::Write;
+use std::path::Path;
 
 use super::UserDiskFilesystem;
 use super::MyError;
+use super::error;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 
@@ -54,8 +56,16 @@ impl CacheFS {
         }
     }
 
-    fn get_file_from_link(&self, path: &str) -> Result<&str> {
+    fn get_fileid_from_link(&self, path: &str) -> Result<String> {
+/* todo todo */
+        let act_path = Path::new(path);
 
+        if let Some(id) = act_path.file_name() {
+            if let Some(file_id) = id.to_str() {
+                return Ok(String::from(file_id));
+            }
+        }
+        return Err(Box::new(MyError::new("Could not get original filepath from symbolic link path")));
     }
 
 }
@@ -148,45 +158,49 @@ impl filesystem::UserDiskFilesystem for CacheFS {
     // get_disk_files returns map with key: file_id as string, value: content as vector of u8
     fn get_disk_files(&self, disk_id: &str) -> Result<HashMap<String, Vec<u8>>>{
         // std::fs::read_link(path)
-        let files: HashMap<String, Vec<u8>> = HashMap::new();
+        let mut files: HashMap<String, Vec<u8>> = HashMap::new();
 
         if let Ok(entries) = std::fs::read_dir(self.get_disk_filepath(disk_id, "")) {
             for entry in entries {
                 if let Ok(file) = entry {
-                    println!("file path : {}", file.path());
-                    println!("file path : {}", basename(file.path()));
-                    let basename = self.get_file_from_link(file.path()); /* method that do basename for user and disk filepaths */
+                    if let Some(filepath) = file.path().to_str() {
 
-
-                    /* todo remove rest of functinon,
-                    instead have the id taken out of the link path and use it to get_file_content() */
-                    match std::fs::read_link(file.path()) {
-                        Ok(link) => {
-                            // print!("{}", link.unwrap().display()); // todo remove once tested
-                            if let Some(link) = link.to_str() {
-                                match self.get_file_content_from_filepath(link) {
-                                    Ok(content) => {
-                                        files.insert(/* filename of link */, content)
+                        // println!("file path : {}", basename(filepath));
+                        match self.get_fileid_from_link(filepath) {
+                            Ok (fileid) => {
+                                /* todo remove rest of functinon,
+                                instead have the id taken out of the link path and use it to get_file_content() */
+                                match std::fs::read_link(file.path()) {
+                                    Ok(link) => {
+                                        // print!("{}", link.unwrap().display()); // todo remove once tested
+                                        if let Some(link) = link.to_str() {
+                                            match self.get_file_content_from_filepath(link) {
+                                                Ok(content) => {
+                                                    files.insert(fileid/* filename of link */, content);
+                                                }
+                                                Err(err) => {
+                                                    return Err(err);
+                                                }
+                                            }
+                                        } else {
+                                            return Err(Box::new(MyError::new("Could not get link file name")));
+                                            /* return error */
+                                        }
                                     }
                                     Err(err) => {
-                                        return Err(err);
+                                        return Err(Box::new(err));
                                     }
                                 }
-                            } else {
-                                /* return error */
+                            }
+                            Err(err) => {
+                                return Err(err);
                             }
                         }
-                        Err(err) => {
-
-                        }
                     }
-
-                    // todo finish
+                    // todo test
                 }
-
             }
         }
-
         return Ok(files);
     }
     // get_files_disks returns map with key: disk_id, value: map with key: file_id as string, value: content as vector of u8
