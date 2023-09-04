@@ -109,7 +109,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         if let Some(err) = self.create_symlink( &filepath, &(self.get_user_filepath(user_id, file_id))) {
-            eprintln!("4 {}, {}", filepath, &(self.get_user_filepath(user_id, file_id)));
+            eprintln!("4 {}, {}", filepath, &(self.get_user_filepath(user_id, file_id))); // todo remove
 
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
@@ -117,7 +117,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         if let Some(err) = self.create_symlink( &filepath, &(self.get_disk_filepath(disk_id, file_id))) {
-                    eprintln!("5 {}, {}", filepath, &(self.get_disk_filepath(disk_id, file_id)));
+            eprintln!("5 {}, {}", filepath, &(self.get_disk_filepath(disk_id, file_id))); // todo remove
 
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
@@ -203,19 +203,26 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         }
         return Ok(files);
     }
+
     // get_files_disks returns map with key: disk_id, value: map with key: file_id as string, value: content as vector of u8
     fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>>{
+        // todo now
+        // todo replicate for vault fs
         let files_disks: HashMap<String, HashMap<String, Vec<u8>>> = HashMap::new();
+        // iterate through dirs in 'disks' dir, then iterate through  to fill up the map
 
         return Ok(files_disks);
     }
 
     // get_user_files returns map with key: file_id as string, value: content as vector of u8
     fn get_user_files(&self, _user_id: &str) -> Result<HashMap<String, Vec<u8>>>{
+        // todo now
+        // todo replicate for vault fs
         let files: HashMap<String, Vec<u8>> = HashMap::new();
 
         return Ok(files);
     }
+
     fn get_home_dir(&self) -> String {
         String::from("cache_fs")
     }

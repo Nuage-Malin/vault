@@ -153,7 +153,31 @@ let mut path = PathBuf::new();
     //  then create a symbolic link into it
 
     fn create_symlink(&self, original: &str, link: &str) -> Option<Box<dyn Error>> {
-        if let Err(err) = std::os::unix::fs::symlink(original, link) {
+        // todo add an if :
+        // if folders are different, add '..' to original
+        // or
+        // count folder difference // too complicated for our needs
+
+        let original_ancestors = std::path::Path::new(original).ancestors();
+        let link_ancestors = std::path::Path::new(link).ancestors();
+
+        let order = original_ancestors.cmp(link_ancestors);
+
+        eprintln!("order is_eq {}", order.is_eq());
+
+        let act_original = if order.is_eq() {
+            String::from(original)
+        } else {
+            String::from("../../") + original
+        };
+        if order.is_eq() {
+            println!("\n\ndid not append");
+        } else {
+            println!("\n\nappended");
+        }
+        println!("creating symlink : {} < {}", act_original, link);
+
+        if let Err(err) = std::os::unix::fs::symlink(act_original, link) {
             if let Some(error_kind) = err // Obtain the error kind
                 .source()
                 .and_then(|err| err.downcast_ref::<std::io::Error>())
@@ -170,7 +194,7 @@ let mut path = PathBuf::new();
                     return None;
                 }
             }
-            eprintln!("\n6\n");
+            eprintln!("\nerror 6\n");
             return Some(Box::new(MyError::new(&(err.to_string()))));
         } else {
             return None;

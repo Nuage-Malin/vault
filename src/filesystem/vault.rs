@@ -25,20 +25,32 @@ impl filesystem::UserDiskFilesystem for VaultFS {
         match std::fs::File::create(&filepath) {
             Ok(mut file) => {
                 match file.write_all(&content) {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        eprintln!("\n\n tout est ok weirdly");
+                    }
                     Err(err) => {
+                        eprintln!("\n\n1");
+
                         return Some(Box::new(MyError::new(&(err.to_string()))));
                     }
                 }
             }
             Err(err) => {
+                eprintln!("\n\n yo could not create the file");
+
                 return Some(Box::new(MyError::new(&(err.to_string()))));
             }
         }
-        if let Some(err) = self.create_symlink( &(String::from("../../") + &filepath), &self.get_user_filepath(&user_id, &file_id)) {
+        if let Some(err) = self.create_dir(&(self.get_user_filepath(user_id, ""))) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Some(err) = self.create_symlink(&(String::from("../../") + &filepath), &self.get_disk_filepath(&disk_id, &file_id)) {
+        if let Some(err) = self.create_symlink(&filepath, &self.get_user_filepath(&user_id, &file_id)) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
+        }
+        if let Some(err) = self.create_dir(&(self.get_disk_filepath(disk_id, ""))) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
+        }
+        if let Some(err) = self.create_symlink(&filepath, &self.get_disk_filepath(&disk_id, &file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         None

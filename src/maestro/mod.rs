@@ -237,6 +237,7 @@ impl MaestroVaultService for MaestroVault {
         &self,
         request: tonic::Request<maestro_vault::GetFilesMetaInfoRequest>,
       ) -> Result<tonic::Response<maestro_vault::GetFilesMetaInfoStatus>, tonic::Status> {
+        // todo after solving other probs
         let status = maestro_vault::GetFilesMetaInfoStatus{file: vec![]};
 
         return Ok(tonic::Response::new(status));
