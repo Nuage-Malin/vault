@@ -26,18 +26,13 @@ impl filesystem::UserDiskFilesystem for VaultFS {
             Ok(mut file) => {
                 match file.write_all(&content) {
                     Ok(_) => {
-                        eprintln!("\n\n tout est ok weirdly");
                     }
                     Err(err) => {
-                        eprintln!("\n\n1");
-
                         return Some(Box::new(MyError::new(&(err.to_string()))));
                     }
                 }
             }
             Err(err) => {
-                eprintln!("\n\n yo could not create the file");
-
                 return Some(Box::new(MyError::new(&(err.to_string()))));
             }
         }

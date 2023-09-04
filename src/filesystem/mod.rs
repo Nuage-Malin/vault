@@ -103,7 +103,6 @@ let mut path = PathBuf::new();
         "file/".to_string() + file_id
     }
     fn get_disk_filepath(&self, disk_id: &str, file_id: &str) -> String {
-        // todo add file_id to complete filepath
         /* todo
         use std::path::PathBuf;
 
@@ -136,7 +135,10 @@ let mut path = PathBuf::new();
         None
     }
 
-    fn count_directories(&self, path: &str) -> usize {
+    /*
+    Optional parameter indicates if the path includes the filename at it's end
+     */
+    fn count_directories(&self, path: &str, has_filename: Option<bool>) -> usize {
         let path = Path::new(path);
         let mut count = 0;
 
@@ -145,39 +147,30 @@ let mut path = PathBuf::new();
                 count += 1;
             }
         }
-
+        if count > 0 && (path.is_file() || has_filename.unwrap_or(false)) {
+            count -= 1;
+        }
         count
     }
     // create_dir_symlink
     // If does not exist, create a directory (taking the base directory of the link parameter),
     //  then create a symbolic link into it
 
-    fn create_symlink(&self, original: &str, link: &str) -> Option<Box<dyn Error>> {
-        // todo add an if :
-        // if folders are different, add '..' to original
-        // or
-        // count folder difference // too complicated for our needs
-
-        let original_ancestors = std::path::Path::new(original).ancestors();
+    fn create_symlink(&self, initial: &str, link: &str) -> Option<Box<dyn Error>> {
+        let initial_ancestors = std::path::Path::new(initial).ancestors();
         let link_ancestors = std::path::Path::new(link).ancestors();
 
-        let order = original_ancestors.cmp(link_ancestors);
+        let order = initial_ancestors.cmp(link_ancestors);
 
-        eprintln!("order is_eq {}", order.is_eq());
-
-        let act_original = if order.is_eq() {
-            String::from(original)
+        // if folders are different, add '..'s to initial so that the link is correct
+        let act_initial = if order.is_eq() {
+            String::from(initial)
         } else {
-            String::from("../../") + original
+            let parent_dir = "../";
+
+            parent_dir.repeat(self.count_directories(link, Some(true))) + initial
         };
-        if order.is_eq() {
-            println!("\n\ndid not append");
-        } else {
-            println!("\n\nappended");
-        }
-        println!("creating symlink : {} < {}", act_original, link);
-
-        if let Err(err) = std::os::unix::fs::symlink(act_original, link) {
+        if let Err(err) = std::os::unix::fs::symlink(act_initial, link) {
             if let Some(error_kind) = err // Obtain the error kind
                 .source()
                 .and_then(|err| err.downcast_ref::<std::io::Error>())
@@ -194,13 +187,11 @@ let mut path = PathBuf::new();
                     return None;
                 }
             }
-            eprintln!("\nerror 6\n");
             return Some(Box::new(MyError::new(&(err.to_string()))));
         } else {
             return None;
         }
     }
-
 
     fn is_cur_dir_home_dir(&self) -> bool {
         match std::env::current_dir() {
@@ -224,6 +215,7 @@ let mut path = PathBuf::new();
         }
         return false;
     }
+
 ///
     fn as_any(&self) -> &dyn Any;
 
