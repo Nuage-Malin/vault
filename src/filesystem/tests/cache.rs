@@ -2,7 +2,7 @@
 #[cfg(test)]
 mod tests {
 
-use crate::filesystem::{cache::CacheFS, tests::tests::{self as fs_tests, FILE_IDS}, UserDiskFilesystem};
+use crate::filesystem::{cache::CacheFS, tests::tests::{self as fs_tests, FILE_IDS, DISK_ID}, UserDiskFilesystem};
 
 use std::path::Path;
 // use std::fs;
@@ -82,13 +82,46 @@ fn _3_get_disk_files() {
 
 #[test]
 fn _4_get_files_disk() {
+    // todo get_files_meta_info
+
+    // todo do
+    match FS.get_files_disks() {
+        Ok(files_disks) => {
+            // todo use several disks
+            for (index, (disk_id, disk_files)) in files_disks.iter().enumerate() {
+                if disk_id != DISK_ID {
+                    eprintln!("\nFile id fetched with disk is incorrect");
+                    assert!(false)
+                }
+                for (index, (file_id, content)) in disk_files.iter().enumerate() {
+                    if file_id != FILE_IDS[index] {
+                        eprintln!("\nFile id fetched with disk is incorrect");
+                        assert!(false)
+                    }
+                    if content != &fs_tests::FILE_CONTENTS[index] {
+                        eprintln!("\nFile content fetched with disk is incorrect");
+                        assert!(false)
+                    }
+                }
+
+            }
+        }
+        Err(err) => {
+            eprintln!("\nError when fetching files disks : {}", err);
+            assert!(false)
+        }
+    }
 }
 
 #[test]
 fn _5_get_user_files() {
-}
+    // todo get_files_meta_info
 
-/* #[test]
+    // TODO get_user_files
+
+}
+/*
+#[test]
 fn /* todo give a bigger number (execute at the end) */ _9_remove_file_test()  {
     FS.remove_file(fs_tests::FILE_IDS[0], fs_tests::USER_ID, fs_tests::DISK_ID);
 

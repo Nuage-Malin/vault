@@ -58,7 +58,6 @@ impl CacheFS {
     }
 
     fn get_fileid_from_link(&self, path: &str) -> Result<String> {
-/* todo todo */
         let act_path = Path::new(path);
 
         if let Some(id) = act_path.file_name() {
@@ -136,7 +135,8 @@ impl filesystem::UserDiskFilesystem for CacheFS {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         None
-    } // todo remove user_id (use symlink instead of full path) or put optional
+        // todo remove user_id (use symlink instead of full path) or put optional
+    }
 
     fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error>>{
         let filepath = self.get_default_filepath(file_id);
@@ -164,13 +164,13 @@ impl filesystem::UserDiskFilesystem for CacheFS {
 
         if let Ok(entries) = std::fs::read_dir(self.get_disk_filepath(disk_id, "")) {
             for entry in entries {
-                if let Ok(file) = entry {
-                    if let Some(filepath) = file.path().to_str() {
+                if let Ok(file_entry) = entry {
+                    if let Some(filepath) = file_entry.path().to_str() {
 
                         // println!("file path : {}", basename(filepath));
                         match self.get_fileid_from_link(filepath) {
                             Ok (fileid) => {
-                                match std::fs::read(file.path()) {
+                                match std::fs::read(file_entry.path()) {
                                     Ok(content) => {
                                         files.insert(fileid /* filename of link */, content);
                                     }
@@ -195,9 +195,33 @@ impl filesystem::UserDiskFilesystem for CacheFS {
     fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>>{
         // todo now
         // todo replicate for vault fs
-        let files_disks: HashMap<String, HashMap<String, Vec<u8>>> = HashMap::new();
+        let mut files_disks: HashMap<String, HashMap<String, Vec<u8>>> = HashMap::new();
         // iterate through dirs in 'disks' dir, then iterate through  to fill up the map
-        let disk_str_dirpath = self.get_disk_filepath("", "");
+
+        if let Ok(entries) = std::fs::read_dir(self.get_disk_filepath("", "")) {
+            for entry in entries {
+                if let Ok(disk_entry) = entry {
+                    if let Some(diskname) = disk_entry.path().file_name() {
+                        if let Some(diskname) = diskname.to_str() {
+                            match self.get_disk_files(diskname) {
+                                Ok(disk_files) => {
+                                    files_disks.insert(String::from(diskname), disk_files);
+                                }
+                                Err(err) => {
+                                    return Err(err);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // todo test
+            return Ok(files_disks);
+        }
+        return Err(Box::new(MyError::new(format!("Line {}, {}: Could not read dir : '{}'", line!(), file!(), self.get_disk_filepath("", "")).as_str())));
+
+
+                /* let disk_str_dirpath = self.get_disk_filepath("", "");
         let disk_dirpath = std::path::Path::new(&disk_str_dirpath);
 
         match std::fs::read_dir(disk_dirpath) {
@@ -218,11 +242,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
             Err(err) => {
                 return Err(Box::new(MyError::new(&(err.to_string()))));
             }
-        }
-
-
-
-        return Ok(files_disks);
+        } */
     }
 
     // get_user_files returns map with key: file_id as string, value: content as vector of u8
