@@ -9,7 +9,7 @@ use std::path::Path;
 
 use super::UserDiskFilesystem;
 use super::MyError;
-use super::error;
+// use super::error;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 
@@ -98,7 +98,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
             if let Some(path_start) = self.store_paths.get(&store) {
                 let store_filepath = path_start.to_string() + &filepath; // todo make that a method and put the method into the map
 
-                if let Some(err) = self.create_symlink( &filepath, &store_filepath) {
+                if let Some(err) = self.create_hardlink( &filepath, &store_filepath) {
                     eprintln!("3");
                     return Some(Box::new(MyError::new(&(err.to_string()))));
                 }
@@ -108,7 +108,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         if let Some(err) = self.create_dir(&(self.get_user_filepath(user_id, ""))) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Some(err) = self.create_symlink( &filepath, &(self.get_user_filepath(user_id, file_id))) {
+        if let Some(err) = self.create_hardlink( &filepath, &(self.get_user_filepath(user_id, file_id))) {
             eprintln!("4 {}, {}", filepath, &(self.get_user_filepath(user_id, file_id))); // todo remove
 
             return Some(Box::new(MyError::new(&(err.to_string()))));
@@ -116,7 +116,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         if let Some(err) = self.create_dir(&(self.get_disk_filepath(disk_id, ""))) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Some(err) = self.create_symlink( &filepath, &(self.get_disk_filepath(disk_id, file_id))) {
+        if let Some(err) = self.create_hardlink( &filepath, &(self.get_disk_filepath(disk_id, file_id))) {
             eprintln!("5 {}, {}", filepath, &(self.get_disk_filepath(disk_id, file_id))); // todo remove
 
             return Some(Box::new(MyError::new(&(err.to_string()))));
@@ -246,11 +246,37 @@ impl filesystem::UserDiskFilesystem for CacheFS {
     }
 
     // get_user_files returns map with key: file_id as string, value: content as vector of u8
-    fn get_user_files(&self, _user_id: &str) -> Result<HashMap<String, Vec<u8>>>{
+    fn get_user_files(&self, user_id: &str) -> Result<HashMap<String, Vec<u8>>>{
         // todo now
         // todo replicate for vault fs
-        let files: HashMap<String, Vec<u8>> = HashMap::new();
+        let mut files: HashMap<String, Vec<u8>> = HashMap::new();
 
+        if let Ok(entries) = std::fs::read_dir(self.get_user_filepath(user_id, "")) {
+            for entry in entries {
+                if let Ok(file_entry) = entry {
+                    if let Some(filepath) = file_entry.path().to_str() {
+
+                        // println!("file path : {}", basename(filepath));
+                        match self.get_fileid_from_link(filepath) {
+                            Ok (fileid) => {
+                                match std::fs::read(file_entry.path()) {
+                                    Ok(content) => {
+                                        files.insert(fileid /* filename of link */, content);
+                                    }
+                                    Err(err) => {
+                                        return Err(Box::new(err));
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                return Err(err);
+                            }
+                        }
+                    }
+                    // todo test
+                }
+            }
+        }
         return Ok(files);
     }
 

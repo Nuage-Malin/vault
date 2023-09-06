@@ -28,9 +28,12 @@ pub trait UserDiskFilesystem: Send + Sync {
 
     // get
     fn get_file_content(&self, file_id: &str) -> Result<Vec<u8>>;
+
     // get_disk_files returns map with key: file_id as string, value: content as vector of u8
     fn get_disk_files(&self, disk_id: &str) -> Result<HashMap<String, Vec<u8>>>;
+
     // get_files_disks returns map with key: disk_id, value: map with key: file_id as string, value: content as vector of u8
+    // todo how to know which user the files belong to ?
     fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>>;
 
     // get_user_files returns map with key: file_id as string, value: content as vector of u8
@@ -38,6 +41,7 @@ pub trait UserDiskFilesystem: Send + Sync {
 
     // utils
     fn get_home_dir(&self) -> String;
+
     // cd_home_dir : create home dir if does not exist, then go into it
     fn cd_home_dir(&self) -> Option<Box<dyn Error>> {
         let home_dir = self.get_home_dir();
@@ -78,6 +82,7 @@ pub trait UserDiskFilesystem: Send + Sync {
         }
         None
     }
+
     fn cd_home_dir_parent(&self) {
         let home_dir = self.get_home_dir();
 
@@ -102,6 +107,7 @@ let mut path = PathBuf::new();
  */
         "file/".to_string() + file_id
     }
+
     fn get_disk_filepath(&self, disk_id: &str, file_id: &str) -> String {
         /* todo
         use std::path::PathBuf;
@@ -116,6 +122,7 @@ let mut path = PathBuf::new();
             disk_path + disk_id + "/" + file_id
         }
     }
+
     fn get_user_filepath(&self, user_id: &str, file_id: &str) -> String {
         let user_path: String = String::from("user/");
 
@@ -156,21 +163,8 @@ let mut path = PathBuf::new();
     // If does not exist, create a directory (taking the base directory of the link parameter),
     //  then create a symbolic link into it
 
-    fn create_symlink(&self, initial: &str, link: &str) -> Option<Box<dyn Error>> {
-        let initial_ancestors = std::path::Path::new(initial).ancestors();
-        let link_ancestors = std::path::Path::new(link).ancestors();
-
-        let order = initial_ancestors.cmp(link_ancestors);
-
-        // if folders are different, add '..'s to initial so that the link is correct
-        let act_initial = if order.is_eq() {
-            String::from(initial)
-        } else {
-            let parent_dir = "../";
-
-            parent_dir.repeat(self.count_directories(link, Some(true))) + initial
-        };
-        if let Err(err) = std::os::unix::fs::symlink(act_initial, link) {
+    fn create_hardlink(&self, initial: &str, link: &str) -> Option<Box<dyn Error>> {
+        if let Err(err) = std::fs::hard_link(initial, link) {
             if let Some(error_kind) = err // Obtain the error kind
                 .source()
                 .and_then(|err| err.downcast_ref::<std::io::Error>())

@@ -39,13 +39,13 @@ impl filesystem::UserDiskFilesystem for VaultFS {
         if let Some(err) = self.create_dir(&(self.get_user_filepath(user_id, ""))) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Some(err) = self.create_symlink(&filepath, &self.get_user_filepath(&user_id, &file_id)) {
+        if let Some(err) = self.create_hardlink(&filepath, &self.get_user_filepath(&user_id, &file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         if let Some(err) = self.create_dir(&(self.get_disk_filepath(disk_id, ""))) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Some(err) = self.create_symlink(&filepath, &self.get_disk_filepath(&disk_id, &file_id)) {
+        if let Some(err) = self.create_hardlink(&filepath, &self.get_disk_filepath(&disk_id, &file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         None

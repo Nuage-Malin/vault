@@ -72,8 +72,6 @@ fn /* todo give a bigger number (execute at the end) */ _9_remove_file_test()  {
         eprintln!("\nCould not remove file {}", FS.get_default_filepath(fs_tests::FILE_IDS[0]));
         assert!(false)
     }
-
 }
-
 
 }

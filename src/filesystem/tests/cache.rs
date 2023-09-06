@@ -119,6 +119,29 @@ fn _5_get_user_files() {
 
     // TODO get_user_files
 
+    match FS.get_user_files(fs_tests::USER_ID) {
+        Ok(files) => {
+            if files.is_empty() {
+                eprintln!("Did not fetch any file from user id");
+                assert!(false);
+            }
+            for (index, (id, content)) in files.iter().enumerate() {
+                if id != FILE_IDS[index] {
+                    eprintln!("\nFile id fetched with user is incorrect");
+                    assert!(false)
+                }
+                if content != &fs_tests::FILE_CONTENTS[index] {
+                    eprintln!("\nFile content fetched with user is incorrect");
+                    assert!(false)
+                }
+            }
+        }
+        Err(err) => {
+            eprintln!("\nError when fetching disk files : {}", err);
+            assert!(false)
+        }
+    }
+
 }
 /*
 #[test]
