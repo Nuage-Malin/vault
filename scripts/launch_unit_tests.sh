@@ -32,4 +32,8 @@ for arg in "$@"; do
     esac
 done
 
+rm -rf cache_fs vault_fs
+
 cargo test -- --nocapture --test-threads=1 --color always
+
+tree cache_fs vault_fs

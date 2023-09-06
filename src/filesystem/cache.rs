@@ -96,8 +96,15 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         }
         if let Some(store) = storage_type {
             if let Some(path_start) = self.store_paths.get(&store) {
-                let store_filepath = path_start.to_string() + &filepath; // todo make that a method and put the method into the map
+                let store_dirpath = path_start.to_string();
 
+                if let Some(err) = self.create_dir(&store_dirpath) {
+                    return Some(Box::new(MyError::new(&(err.to_string()))));
+                }
+                let store_filepath = path_start.to_string() + &file_id; // todo make that a method and put the method into the map
+
+                eprintln!("filepath : {}", filepath);
+                eprintln!("store_filepath {}", store_filepath);
                 if let Some(err) = self.create_hardlink( &filepath, &store_filepath) {
                     eprintln!("3");
                     return Some(Box::new(MyError::new(&(err.to_string()))));
