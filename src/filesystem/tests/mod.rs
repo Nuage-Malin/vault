@@ -1,10 +1,11 @@
 mod vault;
 mod cache;
+mod helpers;
 
 #[cfg(test)]
 mod tests {
 
-use crate::filesystem::{self, vault::VaultFS, cache::CacheFS};
+use crate::{filesystem::{self, vault::VaultFS, cache::CacheFS}, models::grpc::maestro_vault::StorageType};
 
 use std::env;
 
@@ -64,6 +65,7 @@ fn _0_select_filesystem_cache() {
         }
     }
 }
+pub const FILES_STORE_TYPE: [StorageType; 3] = [StorageType::None, StorageType::UploadQueue, StorageType::None];
 pub const FILE_IDS: [&str; 3] = ["11111cdf4734c1aef76e5254", "22222e97f0c3a443451351b0", "33333b1bf0c3a254678257b1"];
 // pub const FILE_CONTENTS: [&str; 3] = ["upload_file_test", "upload_files_test", "other_string"];
 

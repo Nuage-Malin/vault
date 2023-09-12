@@ -1,5 +1,5 @@
 use crate::filesystem;
-use crate::models::grpc::maestro_vault;
+use crate::models::grpc::maestro_vault::{self, StorageType};
 
 use std::collections::HashMap;
 use std::error::Error;
@@ -15,21 +15,21 @@ type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 
 #[derive(Debug)]
 pub struct CacheFS {
-    store_paths: HashMap<i32, String>
+    store_paths: HashMap<maestro_vault::StorageType, String>
 }
 
 impl CacheFS {
 
     pub fn new() -> Result<Self> {
-        // todo create and go into cache_fs dir
-        let mut map: HashMap<i32, String> = HashMap::new();
-        map.insert(maestro_vault::StorageType::UploadQueue.into(), "upload/".to_string());
-        map.insert(maestro_vault::StorageType::DownloadQueue.into(), "download/".to_string());
-        map.insert(maestro_vault::StorageType::RemoveQueue.into(), "remove/".to_string());
+        let mut map: HashMap<maestro_vault::StorageType, String> = HashMap::new();
+        map.insert(maestro_vault::StorageType::UploadQueue, "upload".to_string());
+        map.insert(maestro_vault::StorageType::DownloadQueue, "download".to_string());
+        map.insert(maestro_vault::StorageType::RemoveQueue, "remove".to_string());
         let cache_fs = CacheFS{store_paths: map};
 
+        // todo create and go into cache_fs dir
         cache_fs.cd_home_dir();
-        if let Some(err) = cache_fs.create_dir(&cache_fs.get_default_filepath("")) {
+        if let Some(err) = cache_fs.create_dir(&cache_fs.get_default_dirpath("")) {
             return Err(err);
         }
         if let Some(err) = cache_fs.create_dir(&cache_fs.get_user_filepath("", "")) {
@@ -42,7 +42,6 @@ impl CacheFS {
         return Ok(cache_fs);
     }
 
-
     fn get_file_content_from_filepath(&self, path: &str) -> Result<Vec<u8>> {
         // todo put in common methods (mod.rs)
         let ret = std::fs::read(path);
@@ -52,7 +51,7 @@ impl CacheFS {
                 Ok(content)
             }
             Err(err) => {
-                Err(Box::new(err))
+                Err(Box::new(MyError::new(&err.to_string())))
             }
         }
     }
@@ -68,71 +67,105 @@ impl CacheFS {
         return Err(Box::new(MyError::new("Could not get original filepath from symbolic link path")));
     }
 
+    fn get_store_type_dir(&self, store: &StorageType) -> Option<String> {
+        if store == &StorageType::None {
+            return None;
+        }
+        if let Some(store_path) = self.store_paths.get(&store) {
+            return Some(store_path.to_string());
+        }
+        return None;
+    }
+
+    /* todo get store type dir, location (hard link file) */
+    fn get_store_type_filepath(&self, store: &StorageType, file_id: &str, store_type_dir: Option<&str>) -> Result<String> {
+        let mut storage_dir: String;
+
+        if let Some(dir) = store_type_dir {
+            storage_dir = dir.to_string();
+        } else if let Some(dir) = self.get_store_type_dir(&store) {
+            storage_dir = dir;
+        } else {
+            return Err(Box::new(MyError::new("Could not get location for storage type")));
+        }
+        return Ok(storage_dir + "/" + &file_id);
+    }
+
 }
 
 impl filesystem::UserDiskFilesystem for CacheFS {
-    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<i32>) -> Option<Box<dyn Error + Send>>{
+    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<StorageType>) -> Option<Box<dyn Error + Send>>{
         if !self.is_cur_dir_home_dir() { // todo useless if we check it in class instantiation (function `new`) ?
             return Some(Box::new(MyError::new("Current directory should be home directory of the filesystem")));
         }
+        let dirpath = self.get_default_dirpath(file_id);
         let filepath = self.get_default_filepath(file_id);
 
         { // create and write file
+            if let Some(err) = self.create_dir(&dirpath) {
+                return Some(err);
+            }
             match std::fs::File::create(&filepath) {
                 Ok(mut file) => {
-                    match file.write_all(&content) {
+                    match file.write_all(&content) /* todo add encryption */ {
                         Ok(_) => {}
                         Err(err) => {
-                            eprintln!("1");
                             return Some(Box::new(MyError::new(&(err.to_string()))));
                         }
                     }
                 }
                 Err(err) => {
-                    eprintln!("2");
                     return Some(Box::new(MyError::new(&(err.to_string()))));
                 }
             }
         }
-        if let Some(store) = storage_type {
-            if let Some(path_start) = self.store_paths.get(&store) {
-                let store_dirpath = path_start.to_string();
-
-                if let Some(err) = self.create_dir(&store_dirpath) {
-                    return Some(Box::new(MyError::new(&(err.to_string()))));
+        if let Some(store_type) = storage_type {
+            if let Some(store_type_dir) = self.get_store_type_dir(&store_type) {
+                if let Some(err) = self.create_dir(&store_type_dir) {
+                    return Some(err);
                 }
-                let store_filepath = path_start.to_string() + &file_id; // todo make that a method and put the method into the map
-
-                eprintln!("filepath : {}", filepath);
-                eprintln!("store_filepath {}", store_filepath);
-                if let Some(err) = self.create_hardlink( &filepath, &store_filepath) {
-                    eprintln!("3");
-                    return Some(Box::new(MyError::new(&(err.to_string()))));
+                match self.get_store_type_filepath(&store_type, file_id, Some(&store_type_dir)) {
+                    Ok(store_type_filepath) => {
+                        if let Some(err) = self.create_hardlink( &filepath, &store_type_filepath) {
+                            return Some(err);
+                        }
+                        self.create_symlink(&store_type_dir,
+                            &(dirpath.to_string() + "/" + &store_type_dir),
+                            Some(true));
+                    }
+                    Err(err) => {
+                        return Some(err);
+                    }
                 }
             }
         }
         // todo create directory for user and disk (each id has to have a directory)
         if let Some(err) = self.create_dir(&(self.get_user_filepath(user_id, ""))) {
-            return Some(Box::new(MyError::new(&(err.to_string()))));
+            return Some(err);
         }
         if let Some(err) = self.create_hardlink( &filepath, &(self.get_user_filepath(user_id, file_id))) {
-            eprintln!("4 {}, {}", filepath, &(self.get_user_filepath(user_id, file_id))); // todo remove
-
-            return Some(Box::new(MyError::new(&(err.to_string()))));
+            return Some(err);
+        }
+        if let Some(err) = self.create_symlink(&(self.get_user_filepath(user_id, "")), /* todo change with a function */&(dirpath.to_string() + "/user"), Some(true)) {
+            return Some(err);
         }
         if let Some(err) = self.create_dir(&(self.get_disk_filepath(disk_id, ""))) {
-            return Some(Box::new(MyError::new(&(err.to_string()))));
+            return Some(err);
         }
         if let Some(err) = self.create_hardlink( &filepath, &(self.get_disk_filepath(disk_id, file_id))) {
-            eprintln!("5 {}, {}", filepath, &(self.get_disk_filepath(disk_id, file_id))); // todo remove
-
-            return Some(Box::new(MyError::new(&(err.to_string()))));
+            return Some(err);
+        }
+        if let Some(err) = self.create_symlink(&(self.get_disk_filepath(disk_id, "")), /* todo change with a function */&(dirpath.to_string() + "/disk"), Some(true)) {
+            return Some(err);
         }
         None
     }
 
     fn remove_file(&self, file_id: &str, user_id: &str, disk_id: &str) -> Option<Box<dyn Error + Send>>{
-        if let Err(err) = std::fs::remove_file(self.get_default_filepath(&file_id)) {
+        /* if let Err(err) = std::fs::remove_file(self.get_default_filepath(&file_id)) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
+        } */
+        if let Err(err) = std::fs::remove_dir_all(&self.get_default_dirpath(&file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         if let Err(err) = std::fs::remove_file(&self.get_disk_filepath(&disk_id, &file_id)) {
@@ -141,8 +174,8 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         if let Err(err) = std::fs::remove_file(&self.get_user_filepath(&user_id, &file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
+        /* todo remove storage_type location */
         None
-        // todo remove user_id (use symlink instead of full path) or put optional
     }
 
     fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error>>{
@@ -280,11 +313,101 @@ impl filesystem::UserDiskFilesystem for CacheFS {
                             }
                         }
                     }
-                    // todo test
                 }
             }
         }
         return Ok(files);
+    }
+
+
+    fn get_all_files_store_types(&self) -> Result<HashMap<String, Vec<maestro_vault::StorageType>>> {
+        let mut store_types: HashMap<String, Vec<maestro_vault::StorageType>> = HashMap::new();
+/* todo refactor, with adding files with several store types  */
+
+        // check all dirs in list of store_types
+        // in a loop, all the same
+        for (store_type, store_path) in &self.store_paths {
+            if let Ok(entries) = std::fs::read_dir(store_path) {
+                for entry in entries {
+                    if let Ok(file_entry) = entry {
+                        if let Some(filepath) = file_entry.path().to_str() {
+                            match self.get_fileid_from_link(filepath) {
+                                Ok(file_id) => {
+                                    // check if file is already in map
+                                    match store_types.entry(file_id) {
+                                        // if yes, simply add store type
+                                        std::collections::hash_map::Entry::Occupied(mut occupied_entry) => {
+                                            let entry_store_types = occupied_entry.get_mut();
+                                            /* todo find a better way to do that */
+                                            entry_store_types.push(store_type.clone());
+                                            *occupied_entry.get_mut() = entry_store_types.clone();
+                                        }
+                                        // if no, create map key value with value as vector
+                                        std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                                            vacant_entry.insert(vec!(store_type.clone()));
+                                        }
+                                    }
+                                }
+                                Err(err) => {
+                                    eprintln!("Line {} in {} : Could not retrieve file id from filepath '{}' : {}", line!(), file!(), filepath, err.to_string());
+                                }
+                            }
+                        }
+                    } else if let Err(err) = entry {
+                        eprintln!("Line {} in {} : {}", line!(), file!(), err.to_string());
+                    }
+                }
+            }
+        }
+        if store_types.is_empty() {
+            return Err(Box::new(MyError::new("Could not get all file store types")));
+        }
+        return Ok(store_types);
+    }
+
+    fn get_file_store_types(&self, file_id: &str) -> Result<Vec<maestro_vault::StorageType> /* todo could be several ones ? */> {
+        /* todo redo */
+        let mut store_types: Vec<maestro_vault::StorageType> = Vec::new();
+/*
+        for store_type in self.store_paths.keys() {
+            if let Some(store_path_res) = self.get_store_type_filepath(store_type, file_id) {
+                match store_path_res {
+                    Ok(store_filepath) => {
+                        /* if file exists */
+                        if Path::new(&store_filepath).exists() {
+                            store_types.push(store_type.clone());
+                            continue;
+                        }
+                    }
+                    Err(err) => {
+                        return Err(err);
+                    }
+                }
+            }
+        } */
+        return Ok(store_types);
+        // return Err(Box::new(MyError::new("Could not get file store type")));
+    }
+
+    fn get_files_store_types(&self, file_ids: Vec<&str>) -> Result<Vec<Vec<maestro_vault::StorageType>>> {
+        let mut store_types: Vec<Vec<maestro_vault::StorageType>> = vec![];
+        let empty_store_type_vec: Vec<maestro_vault::StorageType> = vec![maestro_vault::StorageType::None];
+
+        for file_id in file_ids {
+            match self.get_file_store_types(file_id) {
+                Ok(file_store_types) => {
+                    store_types.push(file_store_types);
+                }
+                Err(err) => {
+                    eprintln!("Line {} in {} : {} : Couldn't get store type of file with id {}", line!(), file!(), err.to_string(), file_id);
+                    store_types.push(empty_store_type_vec.clone());
+                }
+            }
+        }
+        /* if store_types.is_empty() {
+            return Err(Box::new(MyError::new("Could not get file store type")));
+        } */
+        return Ok(store_types);
     }
 
     fn get_home_dir(&self) -> String {

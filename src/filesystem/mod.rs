@@ -4,6 +4,8 @@ mod cache;
 mod tests;
 pub mod error;
 
+use crate::models::grpc::maestro_vault::{self, StorageType};
+
 use error::MyError;
 use std::collections::HashMap;
 use std::env;
@@ -20,7 +22,7 @@ pub trait UserDiskFilesystem: Send + Sync {
     // todo replicate methods to handle multiple files at once
 
     // set
-    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<i32>) -> Option<Box<dyn Error + Send>>;
+    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<StorageType>) -> Option<Box<dyn Error + Send>>;
 
     fn remove_file(&self, file_id: &str, user_id: &str, disk_id: &str) -> Option<Box<dyn Error + Send>>; // todo remove user_id (use symlink instead of full path) or put optional
 
@@ -38,6 +40,91 @@ pub trait UserDiskFilesystem: Send + Sync {
 
     // get_user_files returns map with key: file_id as string, value: content as vector of u8
     fn get_user_files(&self, user_id: &str) -> Result<HashMap<String, Vec<u8>>>;
+
+    fn get_diskpath_from_file(&self, file_id: &str) -> Result<String> {
+        let link_path = self.get_default_dirpath(file_id) + "/disk";
+
+        match std::fs::read_link(link_path) {
+            Ok(target_path) => {
+                if let Some(target_str) = target_path.to_str() {
+                    // println!("Symbolic Link '{}' points to: {}", link_path, target_str);
+                    return Ok(target_str.to_string());
+                }
+            }
+            Err(err) => {
+                return Err(Box::new(MyError::new(&err.to_string())));
+            }
+        }
+        return Err(Box::new(MyError::new(&format!("Line {} in {} : Could not diskpath from file id", line!(), file!()))));
+    }
+
+    fn get_userpath_from_file(&self, file_id: &str) -> Result<String> {
+        let link_path = self.get_default_dirpath(file_id) + "/disk";
+
+        match std::fs::read_link(link_path) {
+            Ok(target_path) => {
+                if let Some(target_str) = target_path.to_str() {
+                    // println!("Symbolic Link '{}' points to: {}", link_path, target_str);
+                    return Ok(target_str.to_string());
+                }
+            }
+            Err(err) => {
+                return Err(Box::new(MyError::new(&err.to_string())));
+            }
+        }
+        return Err(Box::new(MyError::new(&format!("Line {} in {} : Could not diskpath from file id", line!(), file!()))));
+    }
+
+    fn get_file_disk(&self, file_id: &str) -> Result<String> {
+        match self.get_diskpath_from_file(file_id) {
+            Ok(diskpath) => {
+                let path = Path::new(&diskpath); // get basename which is the directory named with the disk id
+
+                if !path.exists() {
+                    return Err(Box::new(MyError::new(&format!("Line {} in {} : disk path doesn't exist", line!(), file!()))));
+                }
+                if let Some(filename) = path.file_name() {
+                    if let Some(filename) = filename.to_str() {
+                        return Ok(filename.to_string());
+                    }
+                }
+            }
+            Err(err) => {
+                return Err(err);
+            }
+        }
+        return Err(Box::new(MyError::new(&format!("Line {} in {} : disk path doesn't exist", line!(), file!()))));
+    }
+
+    fn get_file_user(&self, file_id: &str) -> Result<String> {
+        match self.get_userpath_from_file(file_id) {
+            Ok(userpath) => {
+                let path = Path::new(&userpath); // get basename which is the directory named with the user id
+
+                if !path.exists() {
+                    return Err(Box::new(MyError::new(&format!("Line {} in {} : user path doesn't exist", line!(), file!()))));
+                }
+                if let Some(filename) = path.file_name() {
+                    if let Some(filename) = filename.to_str() {
+                        return Ok(filename.to_string());
+                    }
+                }
+            }
+            Err(err) => {
+                return Err(err);
+            }
+        }
+        return Err(Box::new(MyError::new(&format!("Line {} in {} : user path doesn't exist", line!(), file!()))));
+    }
+
+    /* return hashmap with file_id as key, store_types as value */
+    fn get_all_files_store_types(&self) -> Result<HashMap<String, Vec<maestro_vault::StorageType>>>;
+
+    /* return store_types */
+    fn get_file_store_types(&self, file_id: &str) -> Result<Vec<maestro_vault::StorageType>>;
+
+    /* return Vector with order corresponding to file_ids given as paramater, store_types */
+    fn get_files_store_types(&self, file_id: Vec<&str>) -> Result<Vec<Vec<maestro_vault::StorageType>>>;
 
     // utils
     fn get_home_dir(&self) -> String;
@@ -90,30 +177,36 @@ pub trait UserDiskFilesystem: Send + Sync {
             Ok(cur) => {
                 if let Some(act_dir) = cur.file_name().unwrap().to_str() {
                     if act_dir == home_dir {
-                        std::env::set_current_dir("..");
+                        match std::env::set_current_dir("..") {
+                            Ok(_) => {}
+                            Err(err) => {
+                                eprintln!("Line {} in {} : Could not set current dir to parent : {}", line!(), file!(), err.to_string());
+                            }
+                        }
                     }
                 }
             }
             Err(err) => {
-                eprintln!("{}", err);
+                eprintln!("Line {} in {} : Could not get current dir : {}", line!(), file!(), err.to_string());
             }
         }
     }
 
-    fn get_default_filepath(&self, file_id: &str) -> String {
-        /* use std::path::PathBuf;
-
-let mut path = PathBuf::new();
- */
+    fn get_default_dirpath(&self, file_id: &str) -> String {
+/*         if !Path::new(&dirpath).exists() {
+            // If dir path doesn't exist, create one
+            if let Some(err) = self.create_dir(&dirpath) {
+                return Err(err);
+            }
+        } */
         "file/".to_string() + file_id
     }
 
-    fn get_disk_filepath(&self, disk_id: &str, file_id: &str) -> String {
-        /* todo
-        use std::path::PathBuf;
+    fn get_default_filepath(&self, file_id: &str) -> String {
+        self.get_default_dirpath(file_id) + "/file"
+    }
 
-let mut path = PathBuf::new();
- */
+    fn get_disk_filepath(&self, disk_id: &str, file_id: &str /* todo Option<> ? */) -> String {
         let disk_path: String = String::from("disk/");
 
         if disk_id.is_empty() {
@@ -123,7 +216,7 @@ let mut path = PathBuf::new();
         }
     }
 
-    fn get_user_filepath(&self, user_id: &str, file_id: &str) -> String {
+    fn get_user_filepath(&self, user_id: &str, file_id: &str /* todo Option<> ? */) -> String {
         let user_path: String = String::from("user/");
 
         if user_id.is_empty() {
@@ -133,10 +226,10 @@ let mut path = PathBuf::new();
         }
     }
 
-    fn create_dir(&self, directory: &str) -> Option<Box<std::io::Error>>{
+    fn create_dir(&self, directory: &str) -> Option<Box<dyn Error + Send>>{
         if !Path::new(directory).exists() {
             if let Err(err) = std::fs::create_dir(directory) {
-                return Some(Box::new(err));
+                return Some(Box::new(MyError::new(&err.to_string())));
             }
         }
         None
@@ -145,6 +238,7 @@ let mut path = PathBuf::new();
     /*
     Optional parameter indicates if the path includes the filename at it's end
      */
+    /* todo put in a different mod : helpers */
     fn count_directories(&self, path: &str, has_filename: Option<bool>) -> usize {
         let path = Path::new(path);
         let mut count = 0;
@@ -159,11 +253,8 @@ let mut path = PathBuf::new();
         }
         count
     }
-    // create_dir_symlink
-    // If does not exist, create a directory (taking the base directory of the link parameter),
-    //  then create a symbolic link into it
 
-    fn create_hardlink(&self, initial: &str, link: &str) -> Option<Box<dyn Error>> {
+    fn create_hardlink(&self, initial: &str, link: &str) -> Option<Box<dyn Error + Send>> {
         if let Err(err) = std::fs::hard_link(initial, link) {
             if let Some(error_kind) = err // Obtain the error kind
                 .source()
@@ -185,6 +276,16 @@ let mut path = PathBuf::new();
         } else {
             return None;
         }
+    }
+
+    fn create_symlink(&self, original: &str, link: &str, link_has_filename: Option<bool>) -> Option<Box<dyn Error + Send>>{
+        let link_dir_num = self.count_directories(link, link_has_filename);
+        let act_original = "../".repeat(link_dir_num) + original; /* todo test */
+
+        if let Err(err) = std::os::unix::fs::symlink(act_original, link) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
+        }
+        None
     }
 
     fn is_cur_dir_home_dir(&self) -> bool {

@@ -5,10 +5,6 @@ mod tests {
 use crate::filesystem::{vault::VaultFS, tests::tests as fs_tests, UserDiskFilesystem};
 
 use std::path::Path;
-// use std::fs;
-// use std::os::unix::fs as unix_fs;
-
-// static FS: VaultFS = VaultFS{};
 
 use lazy_static::lazy_static;
 

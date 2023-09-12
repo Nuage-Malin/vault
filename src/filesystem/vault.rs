@@ -1,10 +1,11 @@
 use crate::filesystem;
+use crate::models::grpc::maestro_vault::{self, StorageType};
 
 use std::collections::HashMap;
 use std::error::Error;
 use std::any::Any;
 use std::io::Write;
-// use std::path::Path;
+use std::path::Path;
 
 use super::UserDiskFilesystem;
 use super::MyError;
@@ -16,7 +17,7 @@ pub struct VaultFS{}
 
 impl filesystem::UserDiskFilesystem for VaultFS {
     // todo create and move to directory 'vault'
-    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, _: Option<i32>) -> Option<Box<dyn Error + Send>> {
+    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, _: Option<StorageType>) -> Option<Box<dyn Error + Send>> {
         if !self.is_cur_dir_home_dir() {
             return Some(Box::new(MyError::new("Current directory should be home directory of the filesystem")));
         }
@@ -117,12 +118,52 @@ impl filesystem::UserDiskFilesystem for VaultFS {
 
     }
 
-    fn get_user_files(&self, _user_id: &str) -> Result<HashMap<String, Vec<u8>>> {
-        let files: HashMap<String, Vec<u8>> = HashMap::new();
+    fn get_user_files(&self, user_id: &str) -> Result<HashMap<String, Vec<u8>>> {
+        let mut files: HashMap<String, Vec<u8>> = HashMap::new();
 
+        if let Ok(entries) = std::fs::read_dir(self.get_user_filepath(user_id, "")) {
+            for entry in entries {
+                if let Ok(file_entry) = entry {
+                    if let Some(filepath) = file_entry.path().to_str() {
+
+                        // println!("file path : {}", basename(filepath));
+                        match self.get_fileid_from_link(filepath) {
+                            Ok (fileid) => {
+                                match std::fs::read(file_entry.path()) {
+                                    Ok(content) => {
+                                        files.insert(fileid /* filename of link */, content);
+                                    }
+                                    Err(err) => {
+                                        return Err(Box::new(err));
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                return Err(err);
+                            }
+                        }
+                    }
+                    // todo test
+                }
+            }
+        }
         return Ok(files);
     }
 
+    fn get_all_files_store_types(&self) -> Result<HashMap<String, Vec<maestro_vault::StorageType>>> {
+        return Err(Box::new(MyError::new("Could get file store types : method not implemented for vault")));
+        /* or return None ? */
+    }
+
+    fn get_file_store_types(&self, _file_id: &str) -> Result<Vec<maestro_vault::StorageType>> {
+        return Err(Box::new(MyError::new("Could get file store type : method not implemented for vault")));
+        /* or return None ? */
+    }
+
+    fn get_files_store_types(&self, _file_id: Vec<&str>) -> Result<Vec<Vec<maestro_vault::StorageType>>> {
+        return Err(Box::new(MyError::new("Could get file store types : method not implemented for vault")));
+        /* or return None ? */
+    }
 
     fn get_home_dir(&self) -> String {
         String::from("vault_fs")
@@ -139,7 +180,7 @@ impl VaultFS {
         let vault_fs = VaultFS{};
 
         vault_fs.cd_home_dir();
-        if let Some(err) = vault_fs.create_dir(&vault_fs.get_default_filepath("")) {
+        if let Some(err) = vault_fs.create_dir(&vault_fs.get_default_dirpath("")) {
             return Err(err);
         }
         if let Some(err) = vault_fs.create_dir(&vault_fs.get_user_filepath("", "")) {
@@ -150,7 +191,16 @@ impl VaultFS {
         }
         return Ok(vault_fs);
     }
+    fn get_fileid_from_link(&self, path: &str) -> Result<String> {
+        let act_path = Path::new(path);
 
+        if let Some(id) = act_path.file_name() {
+            if let Some(file_id) = id.to_str() {
+                return Ok(String::from(file_id));
+            }
+        }
+        return Err(Box::new(MyError::new("Could not get original filepath from symbolic link path")));
+    }
     // fn get_user_symlink_base_path(&self) {
     // }
 }

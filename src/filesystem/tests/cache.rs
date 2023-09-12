@@ -2,14 +2,10 @@
 #[cfg(test)]
 mod tests {
 
-use crate::filesystem::{cache::CacheFS, tests::tests::{self as fs_tests, FILE_IDS, DISK_ID, FILE_CONTENTS}, UserDiskFilesystem};
-use crate::models::grpc::maestro_vault;
+use crate::{filesystem::{cache::CacheFS, tests::tests::{self as fs_tests, FILE_IDS, DISK_ID, FILE_CONTENTS, FILES_STORE_TYPE}, UserDiskFilesystem}, models::grpc::maestro_vault::StorageType};
+use crate::maestro::i32_to_StorageType;
 
 use std::path::Path;
-// use std::fs;
-// use std::os::unix::fs as unix_fs;
-
-// static FS: CacheFS = CacheFS{};
 
 use lazy_static::lazy_static;
 
@@ -42,14 +38,13 @@ fn _1_create_file_test() {
 #[test]
 fn _2_create_file_storage_type_test() {
     let mut file_exists: bool = false;
-    let storage_type: i32 = maestro_vault::StorageType::UploadQueue.into();
+    let storage_type: i32 = FILES_STORE_TYPE[1].into();
 
-    match FS.create_file(fs_tests::FILE_IDS[1], fs_tests::USER_ID, fs_tests::DISK_ID, fs_tests::FILE_CONTENTS[1].clone(), Some(storage_type)) {
+    match FS.create_file(fs_tests::FILE_IDS[1], fs_tests::USER_ID, fs_tests::DISK_ID, fs_tests::FILE_CONTENTS[1].clone(), Some(i32_to_StorageType(Some(storage_type)))) {
         None => {
             let filepath = String::from("upload/") + &fs_tests::FILE_IDS[1];
 
             file_exists = Path::new(&filepath).exists();
-            println!("does file {} exists {}", filepath, file_exists); // todo remove
         }
         Some(err) => {
             eprintln!("\nCreate file error : {}", err);
@@ -79,8 +74,6 @@ fn _3_get_file_content_test() {
             assert!(false)
         }
     }
-
-    // todo check symbolic links
 }
 
 #[test]
@@ -205,6 +198,34 @@ fn _6_get_user_files() {
             assert!(false)
         }
     }
+
+}
+
+#[test]
+fn _7_get_files_store_types() {
+    let file_ids = vec![FILE_IDS[0],FILE_IDS[1], FILE_IDS[2]];
+    match FS.get_files_store_types(file_ids) {
+        Ok(files_store_types) => {
+            for (index, file_store_types) in files_store_types.iter().enumerate() {
+                for store_type in file_store_types {
+                    if store_type == &FILES_STORE_TYPE[index] {
+                        continue;
+                    } else {
+                        eprintln!("\nStorage type retrived from stored file {} is not the one expected {}", store_type.as_str_name(),FILES_STORE_TYPE[index].as_str_name());
+                        assert!(false)
+                    }
+                }
+            }
+        }
+        Err(err) => {
+            eprintln!("\nError when storage_types disk files : {}", err);
+            assert!(false)
+        }
+    }
+
+
+
+
 
 }
 /*
