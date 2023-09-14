@@ -86,7 +86,34 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn _3_download_file_test() {
+    async fn _3_modify_file_test() {
+        let request_content = maestro_vault::ModifyFileRequest{
+            file_id: FILE_IDS[0].to_string(),
+            content: FILE_CONTENTS[1].to_string().into_bytes()
+        };
+        match MaestroVault::new() {
+            Ok(vault) => {
+                let request = tonic::Request::new(request_content);
+                let result = vault.modify_file(request).await;
+
+                match result {
+                    Ok(_response) => {
+                    }
+                    Err(error) => {
+                        eprintln!("\nError: {}", error);
+                        assert!(false)
+                    }
+                }
+            }
+            Err(err) => {
+                eprintln!("\nError: {}", err);
+                assert!(false)
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn _4_download_file_test() {
         let request_content = maestro_vault::DownloadFileRequest{
             file_id: FILE_IDS[0].to_string(),
             user_id: USER_ID.to_string(),
@@ -104,7 +131,8 @@ mod tests {
 
                         match file_content {
                             Ok(content) => {
-                                assert_eq!(content, FILE_CONTENTS[0]);
+                                assert_eq!(content, FILE_CONTENTS[1]);
+                                /* contents 1 because has been modified from 0 to 1 by modify_file test */
 
                             },
                             Err(error) => {
@@ -122,13 +150,12 @@ mod tests {
             Err(error) => {
                 eprintln!("\nError: {}", error);
                 assert!(false)
-
             }
         }
     }
 
     #[tokio::test]
-    async fn _4_download_files_test() {
+    async fn _5_download_files_test() {
         match MaestroVault::new() {
             Ok(vault) => {
                 let request_content = maestro_vault::DownloadFilesRequest{
@@ -182,7 +209,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn _5_remove_file_test() {
+    async fn _6_remove_file_test() {
 
         match MaestroVault::new() {
             Ok(vault) => {
@@ -209,7 +236,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn _6_remove_files_test() {
+    async fn _7_remove_files_test() {
         match MaestroVault::new() {
             Ok(vault) => {
                 let request_content = maestro_vault::RemoveFilesRequest{

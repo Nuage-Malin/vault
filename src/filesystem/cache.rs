@@ -217,9 +217,8 @@ impl filesystem::UserDiskFilesystem for CacheFS {
 
     fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error>>{
         let filepath = self.get_default_filepath(file_id);
-        let ret = std::fs::write(&filepath, &content);
 
-        match ret {
+        match std::fs::write(&filepath, &content) {
             Ok(_) => {None}
             Err(err) => {
                 return Some(Box::new(MyError::new(&(err.to_string()))));

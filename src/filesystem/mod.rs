@@ -132,7 +132,7 @@ pub trait UserDiskFilesystem: Send + Sync {
     // utils
     fn get_home_dir(&self) -> String;
 
-    // cd_home_dir : create home dir if does not exist, then go into it
+    // cUploadFileStatusd_home_dir : create home dir if does not exist, then go into it
     fn cd_home_dir(&self) -> Option<Box<dyn Error>> {
         let home_dir = self.get_home_dir();
 

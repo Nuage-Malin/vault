@@ -167,6 +167,22 @@ impl MaestroVaultService for MaestroVault {
     return Ok(tonic::Response::new(status));
   }
 
+  async fn modify_file(
+    &self,
+    request: tonic::Request<maestro_vault::ModifyFileRequest>,
+  ) -> Result<tonic::Response<maestro_vault::ModifyFileStatus>, tonic::Status>
+  {
+    let my_request: maestro_vault::ModifyFileRequest = request.into_inner();
+    match self.filesystem.set_file_content(&my_request.file_id, my_request.content) {
+      None => {
+        Ok(tonic::Response::new(maestro_vault::ModifyFileStatus{}))
+      }
+      Some(err) => {
+        Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()))
+      }
+    }
+  }
+
   /* unlink */
   async fn remove_file(
       &self,
