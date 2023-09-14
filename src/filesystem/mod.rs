@@ -126,6 +126,9 @@ pub trait UserDiskFilesystem: Send + Sync {
     /* return Vector with order corresponding to file_ids given as paramater, store_types */
     fn get_files_store_types(&self, file_id: Vec<&str>) -> Result<Vec<Vec<maestro_vault::StorageType>>>;
 
+    /* return vector with file_ids  */
+    fn get_store_type_files(&self, store_type: StorageType) -> Result<Vec<String>>;
+
     // utils
     fn get_home_dir(&self) -> String;
 

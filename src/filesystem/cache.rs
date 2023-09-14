@@ -76,18 +76,34 @@ impl CacheFS {
         }
         return None;
     }
+    fn get_store_type_dirs_from_file(&self, file_id: &str) -> Option<Vec<String>> {
+        let mut store_type_dirs: Vec<String> = vec![];
+        let dirpath = self.get_default_dirpath(file_id);
+
+        for (_store_type, store_path) in &self.store_paths {
+            let path_str = dirpath.to_string() + "/" + store_path;
+            let path = Path::new(&path_str);
+
+            if path.exists() {
+                store_type_dirs.push(store_path.clone()); // returns only the name of the store type ("upload", "download", "remove" ...)
+            }
+        }
+        if store_type_dirs.is_empty() {
+            return None;
+        }
+        return Some(store_type_dirs);
+    }
 
     /* todo get store type dir, location (hard link file) */
     fn get_store_type_filepath(&self, store: &StorageType, file_id: &str, store_type_dir: Option<&str>) -> Result<String> {
-        let mut storage_dir: String;
-
-        if let Some(dir) = store_type_dir {
-            storage_dir = dir.to_string();
+        let storage_dir: String = if let Some(dir) = store_type_dir {
+            dir.to_string()
         } else if let Some(dir) = self.get_store_type_dir(&store) {
-            storage_dir = dir;
+            dir
         } else {
             return Err(Box::new(MyError::new("Could not get location for storage type")));
-        }
+        };
+
         return Ok(storage_dir + "/" + &file_id);
     }
 
@@ -129,6 +145,11 @@ impl filesystem::UserDiskFilesystem for CacheFS {
                         if let Some(err) = self.create_hardlink( &filepath, &store_type_filepath) {
                             return Some(err);
                         }
+                        /*
+                        not great to create a symlink each time (especially when it's only to know the store type which can only be upload, download or remove) :
+                        creates a new file inode
+                        uses a few bytes for the filepath
+                         */
                         self.create_symlink(&store_type_dir,
                             &(dirpath.to_string() + "/" + &store_type_dir),
                             Some(true));
@@ -139,7 +160,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
                 }
             }
         }
-        // todo create directory for user and disk (each id has to have a directory)
+        // create directory for user and disk (each id has to have a directory)
         if let Some(err) = self.create_dir(&(self.get_user_filepath(user_id, ""))) {
             return Some(err);
         }
@@ -161,20 +182,36 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         None
     }
 
+    /* todo : don't require user_id and disk_id anymore */
     fn remove_file(&self, file_id: &str, user_id: &str, disk_id: &str) -> Option<Box<dyn Error + Send>>{
-        /* if let Err(err) = std::fs::remove_file(self.get_default_filepath(&file_id)) {
-            return Some(Box::new(MyError::new(&(err.to_string()))));
-        } */
-        if let Err(err) = std::fs::remove_dir_all(&self.get_default_dirpath(&file_id)) {
+        /*
+        remove all storage_type location
+        has to be done first because retrieve info from file directory, which is also removed in this function, later
+        */
+        if let Some(store_type_dirs) = self.get_store_type_dirs_from_file(file_id) {
+            for store_type_dir in store_type_dirs {
+                match self.get_store_type_filepath(&StorageType::None/* use store_type_dir instead of specifying the type */, file_id, Some(&store_type_dir)) {
+                    Ok(store_type_filepath) => {
+                        if let Err(err) = std::fs::remove_file(&store_type_filepath) {
+                            return Some(Box::new(MyError::new(&(err.to_string()))));
+                        }
+                    }
+                    Err(err) => {
+                        return Some(err);
+                    }
+                }
+            }
+        }
+        if let Err(err) = std::fs::remove_dir_all(&self.get_default_dirpath(file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Err(err) = std::fs::remove_file(&self.get_disk_filepath(&disk_id, &file_id)) {
+        if let Err(err) = std::fs::remove_file(&self.get_disk_filepath(disk_id, file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Err(err) = std::fs::remove_file(&self.get_user_filepath(&user_id, &file_id)) {
+        if let Err(err) = std::fs::remove_file(&self.get_user_filepath(user_id, file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        /* todo remove storage_type location */
+
         None
     }
 
@@ -233,7 +270,6 @@ impl filesystem::UserDiskFilesystem for CacheFS {
 
     // get_files_disks returns map with key: disk_id, value: map with key: file_id as string, value: content as vector of u8
     fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>>{
-        // todo now
         // todo replicate for vault fs
         let mut files_disks: HashMap<String, HashMap<String, Vec<u8>>> = HashMap::new();
         // iterate through dirs in 'disks' dir, then iterate through  to fill up the map
@@ -259,30 +295,6 @@ impl filesystem::UserDiskFilesystem for CacheFS {
             return Ok(files_disks);
         }
         return Err(Box::new(MyError::new(format!("Line {}, {}: Could not read dir : '{}'", line!(), file!(), self.get_disk_filepath("", "")).as_str())));
-
-
-                /* let disk_str_dirpath = self.get_disk_filepath("", "");
-        let disk_dirpath = std::path::Path::new(&disk_str_dirpath);
-
-        match std::fs::read_dir(disk_dirpath) {
-            Ok(dir) => {
-                for potential_entry in dir {
-                    match potential_entry {
-                        Ok(entry) => {
-                            if let Some(filename) = entry.file_name().as_os_str().to_str() {
-                                eprintln!("dir entry : {}", filename);
-                            }
-                        }
-                        Err(_) => {}
-                    }
-
-
-                }
-            }
-            Err(err) => {
-                return Err(Box::new(MyError::new(&(err.to_string()))));
-            }
-        } */
     }
 
     // get_user_files returns map with key: file_id as string, value: content as vector of u8
@@ -367,24 +379,22 @@ impl filesystem::UserDiskFilesystem for CacheFS {
 
     fn get_file_store_types(&self, file_id: &str) -> Result<Vec<maestro_vault::StorageType> /* todo could be several ones ? */> {
         /* todo redo */
-        let mut store_types: Vec<maestro_vault::StorageType> = Vec::new();
-/*
+        let mut store_types: Vec<maestro_vault::StorageType> = vec![];
+
         for store_type in self.store_paths.keys() {
-            if let Some(store_path_res) = self.get_store_type_filepath(store_type, file_id) {
-                match store_path_res {
-                    Ok(store_filepath) => {
-                        /* if file exists */
-                        if Path::new(&store_filepath).exists() {
-                            store_types.push(store_type.clone());
-                            continue;
-                        }
-                    }
-                    Err(err) => {
-                        return Err(err);
+            match self.get_store_type_filepath(store_type, file_id, None) {
+                Ok(store_filepath) => {
+                    /* if file exists */
+                    if Path::new(&store_filepath).exists() {
+                        store_types.push(store_type.clone());
+                        continue;
                     }
                 }
+                Err(err) => {
+                    return Err(err);
+                }
             }
-        } */
+        }
         return Ok(store_types);
         // return Err(Box::new(MyError::new("Could not get file store type")));
     }
@@ -408,6 +418,27 @@ impl filesystem::UserDiskFilesystem for CacheFS {
             return Err(Box::new(MyError::new("Could not get file store type")));
         } */
         return Ok(store_types);
+    }
+
+    fn get_store_type_files(&self, store_type: StorageType) -> Result<Vec<String>> {
+        let mut store_type_files: Vec<String> = vec![];
+
+        /* todo test */
+        if let Some(store_type_dir) = self.get_store_type_dir(&store_type) {
+            /* get all files from dir */
+            if let Ok(entries) = std::fs::read_dir(store_type_dir) {
+                for entry in entries {
+                    if let Ok(file_entry) = entry {
+                        if let Some(filename) = file_entry.path().file_name() {
+                            if let Some(filename) = filename.to_str() {
+                                store_type_files.push(filename.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return Ok(store_type_files);
     }
 
     fn get_home_dir(&self) -> String {

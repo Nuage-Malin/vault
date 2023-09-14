@@ -16,44 +16,55 @@ type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 pub struct VaultFS{}
 
 impl filesystem::UserDiskFilesystem for VaultFS {
-    // todo create and move to directory 'vault'
     fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, _: Option<StorageType>) -> Option<Box<dyn Error + Send>> {
-        if !self.is_cur_dir_home_dir() {
+        if !self.is_cur_dir_home_dir() { // todo useless if we check it in class instantiation (function `new`) ?
             return Some(Box::new(MyError::new("Current directory should be home directory of the filesystem")));
         }
-        let filepath = self.get_default_filepath(&file_id);
+        let dirpath = self.get_default_dirpath(file_id);
+        let filepath = self.get_default_filepath(file_id);
 
-        match std::fs::File::create(&filepath) {
-            Ok(mut file) => {
-                match file.write_all(&content) {
-                    Ok(_) => {
-                    }
-                    Err(err) => {
-                        return Some(Box::new(MyError::new(&(err.to_string()))));
+        { // create and write file
+            if let Some(err) = self.create_dir(&dirpath) {
+                return Some(err);
+            }
+            match std::fs::File::create(&filepath) {
+                Ok(mut file) => {
+                    match file.write_all(&content) /* todo add encryption */ {
+                        Ok(_) => {}
+                        Err(err) => {
+                            return Some(Box::new(MyError::new(&(err.to_string()))));
+                        }
                     }
                 }
-            }
-            Err(err) => {
-                return Some(Box::new(MyError::new(&(err.to_string()))));
+                Err(err) => {
+                    return Some(Box::new(MyError::new(&(err.to_string()))));
+                }
             }
         }
+        // create directory for user and disk (each id has to have a directory)
         if let Some(err) = self.create_dir(&(self.get_user_filepath(user_id, ""))) {
-            return Some(Box::new(MyError::new(&(err.to_string()))));
+            return Some(err);
         }
-        if let Some(err) = self.create_hardlink(&filepath, &self.get_user_filepath(&user_id, &file_id)) {
-            return Some(Box::new(MyError::new(&(err.to_string()))));
+        if let Some(err) = self.create_hardlink( &filepath, &(self.get_user_filepath(user_id, file_id))) {
+            return Some(err);
+        }
+        if let Some(err) = self.create_symlink(&(self.get_user_filepath(user_id, "")), /* todo change with a function */&(dirpath.to_string() + "/user"), Some(true)) {
+            return Some(err);
         }
         if let Some(err) = self.create_dir(&(self.get_disk_filepath(disk_id, ""))) {
-            return Some(Box::new(MyError::new(&(err.to_string()))));
+            return Some(err);
         }
-        if let Some(err) = self.create_hardlink(&filepath, &self.get_disk_filepath(&disk_id, &file_id)) {
-            return Some(Box::new(MyError::new(&(err.to_string()))));
+        if let Some(err) = self.create_hardlink( &filepath, &(self.get_disk_filepath(disk_id, file_id))) {
+            return Some(err);
+        }
+        if let Some(err) = self.create_symlink(&(self.get_disk_filepath(disk_id, "")), /* todo change with a function */&(dirpath.to_string() + "/disk"), Some(true)) {
+            return Some(err);
         }
         None
     }
 
     fn remove_file(&self, file_id: &str, user_id: &str, disk_id: &str) -> Option<Box<dyn Error + Send>> {
-        if let Err(err) = std::fs::remove_file(self.get_default_filepath(&file_id)) {
+        if let Err(err) = std::fs::remove_dir_all(self.get_default_dirpath(&file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         if let Err(err) = std::fs::remove_file(&self.get_disk_filepath(&disk_id, &file_id)) {
@@ -151,20 +162,20 @@ impl filesystem::UserDiskFilesystem for VaultFS {
     }
 
     fn get_all_files_store_types(&self) -> Result<HashMap<String, Vec<maestro_vault::StorageType>>> {
-        return Err(Box::new(MyError::new("Could get file store types : method not implemented for vault")));
-        /* or return None ? */
+        return Err(Box::new(MyError::new("Could not get file store types : method not implemented for vault")));
     }
 
     fn get_file_store_types(&self, _file_id: &str) -> Result<Vec<maestro_vault::StorageType>> {
-        return Err(Box::new(MyError::new("Could get file store type : method not implemented for vault")));
-        /* or return None ? */
+        return Err(Box::new(MyError::new("Could not get file store type : method not implemented for vault")));
     }
 
     fn get_files_store_types(&self, _file_id: Vec<&str>) -> Result<Vec<Vec<maestro_vault::StorageType>>> {
-        return Err(Box::new(MyError::new("Could get file store types : method not implemented for vault")));
-        /* or return None ? */
+        return Err(Box::new(MyError::new("Could not get file store types : method not implemented for vault")));
     }
 
+    fn get_store_type_files(&self, _store_type: StorageType) -> Result<Vec<String>> {
+        return Err(Box::new(MyError::new("Could not get file store types : method not implemented for vault")));
+    }
     fn get_home_dir(&self) -> String {
         String::from("vault_fs")
     }

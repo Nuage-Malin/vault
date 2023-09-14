@@ -2,7 +2,6 @@ mod tests;
 
 use std::str::FromStr;
 use std::error::Error;
-use std::collections::HashMap;
 
 use bson::oid::ObjectId;
 
@@ -12,7 +11,7 @@ use crate::stats;
 use crate::filesystem;
 use crate::models::users_disks::{ApproxUserDiskUpdate, ApproxUserDiskInfo, DiskAction};
 
-pub fn i32_to_StorageType(enum_num: Option<i32>) -> StorageType {
+pub fn i32_to_storage_type(enum_num: Option<i32>) -> StorageType {
   match enum_num {
     Some(enum_num) => {
       match enum_num {
@@ -26,6 +25,23 @@ pub fn i32_to_StorageType(enum_num: Option<i32>) -> StorageType {
     }
     None => {
       StorageType::None
+    }
+  }
+}
+
+pub fn storage_type_to_i32(enum_num: Option<StorageType>) -> i32 {
+  match enum_num {
+    Some(enum_num) => {
+      match enum_num {
+        StorageType::None => 0,
+        StorageType::UploadQueue => 1,
+        StorageType::DownloadQueue => 2,
+        StorageType::RemoveQueue => 3,
+        StorageType::RequestQueue => 4
+      }
+    }
+    None => {
+      0
     }
   }
 }
@@ -108,7 +124,7 @@ impl MaestroVaultService for MaestroVault {
      *
      * choose interface at compile time or with env variable
      */
-    let ret: Option<Box<dyn Error + Send>> = self.filesystem.create_file(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), my_request.content, Some(i32_to_StorageType(my_request.store_type)));
+    let ret: Option<Box<dyn Error + Send>> = self.filesystem.create_file(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), my_request.content, Some(i32_to_storage_type(my_request.store_type)));
       // let ret = std::fs::write(my_path.to_string() + "/" + my_request.file_id.as_str(), my_request.content);
 
     match ret { // todo change return type or match branches
@@ -134,7 +150,7 @@ impl MaestroVaultService for MaestroVault {
     let mut status = maestro_vault::UploadFilesStatus{file_id_failures: vec!()};
 
     for my_request in my_requests.files {
-        let ret = self.filesystem.create_file(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), my_request.content, Some(i32_to_StorageType(my_request.store_type)));
+        let ret = self.filesystem.create_file(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), my_request.content, Some(i32_to_storage_type(my_request.store_type)));
 
     //   let ret = std::fs::write(String::from(my_request.user_id.as_str()) + "/" + my_request.file_id.as_str(), my_request.content);
 
@@ -260,8 +276,41 @@ impl MaestroVaultService for MaestroVault {
   ) -> Result<tonic::Response<maestro_vault::GetFileMetaInfoStatus>, tonic::Status> {
     let my_request = request.into_inner();
     let mut status = maestro_vault::GetFileMetaInfoStatus{file: None};
+    let disk: String;
+    let user: String;
+    let mut store_types: Vec<i32> = vec![];
 
     /* todo */
+    match self.filesystem.get_file_disk(&my_request.file_id) {
+      Ok(file_disk) => {
+        disk = file_disk;
+      }
+      Err(err) => {
+        return Err(tonic::Status::new(tonic::Code::NotFound, err.to_string()));
+      }
+    }
+    match self.filesystem.get_file_user(&my_request.file_id) {
+      Ok(file_user) => {
+        user = file_user;
+      }
+      Err(err) => {
+        return Err(tonic::Status::new(tonic::Code::NotFound, err.to_string()));
+      }
+    }
+    match self.filesystem.get_file_store_types(&my_request.file_id) {
+      Ok(file_store_types) => {
+        for file_store_type in file_store_types {
+          let store_type_num = storage_type_to_i32(Some(file_store_type));
+
+          store_types.push(store_type_num);
+        }
+      }
+      Err(err) => {
+        return Err(tonic::Status::new(tonic::Code::NotFound, err.to_string()));
+      }
+    }
+    let file = maestro_vault::FileMetaInfo{file_id: my_request.file_id.to_string(), user_id: user.to_string(), disk_id: disk.to_string(), store_types: store_types.clone()};
+    status.file = Some(file);
     return Ok(tonic::Response::new(status));
   }
       /*
@@ -275,61 +324,114 @@ impl MaestroVaultService for MaestroVault {
     &self,
     request: tonic::Request<maestro_vault::GetFilesMetaInfoRequest>,
   ) -> Result<tonic::Response<maestro_vault::GetFilesMetaInfoStatus>, tonic::Status> {
-    // todo after solving other probs
     let my_request = request.into_inner();
-    let mut status = maestro_vault::GetFilesMetaInfoStatus{file: vec![]};
+    let mut status = maestro_vault::GetFilesMetaInfoStatus{files: vec![]};
 
-    let mut files_disk_id: Option<HashMap<String, Vec<u8>>> = None; // files having the same disk_id as specified as param
-    let mut files_user_id: Option<HashMap<String, Vec<u8>>> = None; // files having the same user_id as specified as param
+    let mut files: Vec<Vec<String>> = vec![];
 
+    fn filter_common_entries<V>(vec1: &Vec<V>, vec2: &Vec<V>) -> Vec<V>
+    where
+        V: Clone,
+        V: Eq
+    {
+        let mut result = Vec::new();
+
+        for val in vec1.iter() {
+            if vec2.contains(val) {
+              result.push(val.clone());
+            }
+        }
+        result
+    }
     /* Should there be only one possible parameter within the 3 ? */
 
-    let mut act_disk_id = String::from("");
-    let mut act_user_id = String::from("");
+    if let Some(user_id) = my_request.user_id {
+      match self.filesystem.get_user_files(&user_id) /* todo replace with only getting the file_id */ {
+        Ok(cur_user_files) => {
+          let mut user_files: Vec<String> = vec![];
 
+          for (file_id, _content) in cur_user_files {
+            user_files.push(file_id);
+          }
+          files.push(user_files);
+        }
+        Err(err) => {
+          return Err(tonic::Status::new(tonic::Code::Aborted, err.to_string()));
+        }
+      }
+    }
     if let Some(disk_id) = my_request.disk_id {
-      act_disk_id = disk_id.clone();
+      match self.filesystem.get_disk_files(&disk_id) /* todo replace with only getting the file_id */ {
+        Ok(cur_disk_files) => {
+          let mut disk_files: Vec<String> = vec![];
 
-      match self.filesystem.get_disk_files(&disk_id) {
-        Ok(disk_files) => {
-          files_disk_id = Some(disk_files);
+          for (file_id, _content) in cur_disk_files {
+
+            disk_files.push(file_id.clone());
+          }
+          files.push(disk_files);
         }
         Err(err) => {
-          // todo
+          return Err(tonic::Status::new(tonic::Code::Aborted, err.to_string()));
         }
       }
     }
-    if let Some (user_id) = my_request.user_id {
-      act_user_id = user_id.clone();
-
-      match self.filesystem.get_user_files(&user_id) {
-        Ok(user_files) => {
-          files_user_id = Some(user_files);
+    if let Some(store_type) = my_request.store_type {
+      match self.filesystem.get_store_type_files(i32_to_storage_type(Some(store_type))) {
+        Ok(store_type_files) => {
+          files.push(store_type_files);
         }
         Err(err) => {
-          // todo
+          return Err(tonic::Status::new(tonic::Code::Aborted, err.to_string()));
         }
       }
-    }
 
-    if let Some(disk_files) = files_disk_id {
-      if let Some(user_files) = files_user_id {
-        for (file_id, _file_content) in &disk_files {
-          if user_files.contains_key(file_id) {
-            let new_file = maestro_vault::FileMetaInfo{
-              file_id: file_id.to_string(),
-              user_id: act_user_id.clone(), /* todo find user from user_files to insert it in response */
-              disk_id: act_disk_id.clone(),
-              store_type: None};
-            // status.file.insert(0, new_file);
-            /* todo insert also when only one of user or disk */
+    }
+    let last_files_index = files.len() - 1;
+    for index in 0..last_files_index {
+      files[index + 1] = filter_common_entries(&files[index], &files[index + 1]);
+    }
+    // status.file = files[last_files_index].clone();
+    for file_id in files[last_files_index].clone() {
+      let user_id: String;
+      let disk_id: String;
+      let mut store_types: Vec<i32> = vec![];
+
+      match self.filesystem.get_file_user(&file_id) {
+        Ok(user) => {
+          user_id = user;
+        }
+        Err(err) => {
+          eprintln!("Line {} in {} : {}", line!(), file!(), err.to_string());
+          continue;
+        }
+      }
+      match self.filesystem.get_file_disk(&file_id) {
+        Ok(disk) => {
+          disk_id = disk;
+        }
+        Err(err) => {
+          eprintln!("Line {} in {} : {}", line!(), file!(), err.to_string());
+          continue;
+        }
+      }
+      match self.filesystem.get_file_store_types(&file_id) {
+        Ok(storage_types) => {
+          for storage_type in storage_types {
+            store_types.push(storage_type_to_i32(Some(storage_type)));
           }
         }
+        Err(err) => {
+          eprintln!("Line {} in {} : {}", line!(), file!(), err.to_string());
+          continue;
+        }
       }
+
+      status.files.push(maestro_vault::FileMetaInfo{file_id: file_id,
+        user_id: user_id,
+        disk_id: disk_id,
+        store_types: store_types,});
     }
-
-    /* todo add storage_type if cache */
-
 
     return Ok(tonic::Response::new(status));
   }

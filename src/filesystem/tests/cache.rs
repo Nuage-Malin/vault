@@ -3,7 +3,7 @@
 mod tests {
 
 use crate::{filesystem::{cache::CacheFS, tests::tests::{self as fs_tests, FILE_IDS, DISK_ID, FILE_CONTENTS, FILES_STORE_TYPE}, UserDiskFilesystem}, models::grpc::maestro_vault::StorageType};
-use crate::maestro::i32_to_StorageType;
+use crate::maestro::i32_to_storage_type;
 
 use std::path::Path;
 
@@ -40,7 +40,7 @@ fn _2_create_file_storage_type_test() {
     let mut file_exists: bool = false;
     let storage_type: i32 = FILES_STORE_TYPE[1].into();
 
-    match FS.create_file(fs_tests::FILE_IDS[1], fs_tests::USER_ID, fs_tests::DISK_ID, fs_tests::FILE_CONTENTS[1].clone(), Some(i32_to_StorageType(Some(storage_type)))) {
+    match FS.create_file(fs_tests::FILE_IDS[1], fs_tests::USER_ID, fs_tests::DISK_ID, fs_tests::FILE_CONTENTS[1].clone(), Some(i32_to_storage_type(Some(storage_type)))) {
         None => {
             let filepath = String::from("upload/") + &fs_tests::FILE_IDS[1];
 
@@ -228,9 +228,9 @@ fn _7_get_files_store_types() {
 
 
 }
-/*
+
 #[test]
-fn /* todo give a bigger number (execute at the end) */ _9_remove_file_test()  {
+fn /* todo give a bigger number (execute at the end) */ _9_remove_file()  {
     FS.remove_file(fs_tests::FILE_IDS[0], fs_tests::USER_ID, fs_tests::DISK_ID);
 
     if Path::new(&FS.get_default_filepath(fs_tests::FILE_IDS[0])).exists() {
@@ -238,8 +238,31 @@ fn /* todo give a bigger number (execute at the end) */ _9_remove_file_test()  {
         eprintln!("\nCould not remove file {}", FS.get_default_filepath(fs_tests::FILE_IDS[0]));
         assert!(false)
     }
+}
 
-} */
+#[test]
+fn _9_remove_file_with_storage_type()  {
+    FS.remove_file(fs_tests::FILE_IDS[1], fs_tests::USER_ID, fs_tests::DISK_ID);
+
+    if Path::new(&FS.get_default_filepath(fs_tests::FILE_IDS[1])).exists() {
+        eprintln!("\nCould not remove file {}", FS.get_default_filepath(fs_tests::FILE_IDS[0]));
+        assert!(false)
+    }
+    let store_type_path = "upload/".to_string() + fs_tests::FILE_IDS[1];
+    if Path::new(&store_type_path).exists() {
+        eprintln!("\nCould not remove store_type location of file {}", FS.get_default_filepath(fs_tests::FILE_IDS[0]));
+        assert!(false)
+    }
+}
+
+#[test]
+fn /* todo give a bigger number (execute at the end) */ _9_remove_file_that_doesnt_exist()  {
+    if let None = FS.remove_file("111111111111111111111111", fs_tests::USER_ID, fs_tests::DISK_ID) {
+        eprintln!("\nNo error when removing inexisting file (there should have been one)");
+        assert!(false)
+    }
+
+}
 
 
 }
