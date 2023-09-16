@@ -1,5 +1,4 @@
 mod tests;
-
 use std::str::FromStr;
 use std::error::Error;
 
@@ -78,8 +77,6 @@ impl MaestroVault {
           user_id: ObjectId::from_str(user_id).unwrap()
         }
       ).await;
-//
-    // });
   }
 }
 
@@ -100,7 +97,7 @@ fn dir_exists(path: String) -> bool { // todo put that into filesystem
 #[tonic::async_trait]
 impl MaestroVaultService for MaestroVault {
 
-  /* open and write */
+  /// open and write
   async fn upload_file(
       &self,
       request: tonic::Request<maestro_vault::UploadFileRequest>,
@@ -124,10 +121,12 @@ impl MaestroVaultService for MaestroVault {
      *
      * choose interface at compile time or with env variable
      */
-    let ret: Option<Box<dyn Error + Send>> = self.filesystem.create_file(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), my_request.content, Some(i32_to_storage_type(my_request.store_type)));
-      // let ret = std::fs::write(my_path.to_string() + "/" + my_request.file_id.as_str(), my_request.content);
 
-    match ret { // todo change return type or match branches
+    match self.filesystem.create_file(my_request.file_id.as_str(),
+                                      my_request.user_id.as_str(),
+                                      my_request.disk_id.as_str(),
+                                      my_request.content,
+                                      Some(i32_to_storage_type(my_request.store_type))) { // todo change return type or match branches
       Some(err) => {
         Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()))
       }
@@ -138,7 +137,7 @@ impl MaestroVaultService for MaestroVault {
     }
   }
 
-  /* loop over open and write */
+  /// loop over open and write
   async fn upload_files(
       &self,
       request: tonic::Request<maestro_vault::UploadFilesRequest>,
@@ -150,11 +149,7 @@ impl MaestroVaultService for MaestroVault {
     let mut status = maestro_vault::UploadFilesStatus{file_id_failures: vec!()};
 
     for my_request in my_requests.files {
-        let ret = self.filesystem.create_file(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), my_request.content, Some(i32_to_storage_type(my_request.store_type)));
-
-    //   let ret = std::fs::write(String::from(my_request.user_id.as_str()) + "/" + my_request.file_id.as_str(), my_request.content);
-
-        match ret {
+        match self.filesystem.create_file(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), my_request.content, Some(i32_to_storage_type(my_request.store_type))) {
             None => {
                 self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::CREATE).await;
             }
@@ -183,7 +178,7 @@ impl MaestroVaultService for MaestroVault {
     }
   }
 
-  /* unlink */
+  /// unlink
   async fn remove_file(
       &self,
       request: tonic::Request<maestro_vault::RemoveFileRequest>,
@@ -192,10 +187,7 @@ impl MaestroVaultService for MaestroVault {
     let my_request: maestro_vault::RemoveFileRequest = request.into_inner();
     let status = maestro_vault::RemoveFileStatus{};
 
-    let ret = self.filesystem.remove_file(&my_request.file_id, &my_request.user_id, &my_request.disk_id);
-    // let ret = std::fs::remove_file(String::from(my_request.user_id.as_str()) + "/" + my_request.file_id.as_str());
-
-    match ret {
+    match self.filesystem.remove_file(&my_request.file_id, &my_request.user_id, &my_request.disk_id) {
       None => {
         self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::DELETE).await;
       }
@@ -206,7 +198,7 @@ impl MaestroVaultService for MaestroVault {
     return Ok(tonic::Response::new(status));
   }
 
-  /* loop over unlink */
+  /// loop over unlink
   async fn remove_files(
       &self,
       request: tonic::Request<maestro_vault::RemoveFilesRequest>,
@@ -216,16 +208,14 @@ impl MaestroVaultService for MaestroVault {
     let mut status = maestro_vault::RemoveFilesStatus{file_id_failures: vec!()};
 
     for file_id in my_requests.file_id {
-      let ret = self.filesystem.remove_file(&file_id, &my_requests.user_id, &my_requests.disk_id);
 
-      // let ret = std::fs::remove_file(String::from(my_requests.user_id.as_str()) + "/" + file_id.as_str());
-
-      match ret {
+      match self.filesystem.remove_file(&file_id, &my_requests.user_id, &my_requests.disk_id) {
         None => {
           self.update_logs(file_id.as_str(), my_requests.user_id.as_str(), my_requests.disk_id.as_str(), DiskAction::DELETE).await;
         },
-        Some(_) => {
+        Some(err) => {
           // todo print err
+          eprintln!("Line {} in {} : {}", line!(), file!(), err.to_string());
           status.file_id_failures.push(file_id)
         }
       }
@@ -234,7 +224,7 @@ impl MaestroVaultService for MaestroVault {
   }
   /// Download
 
-    /* open, read, return content */
+    /// open, read, return content
     async fn download_file(
       &self,
       request: tonic::Request<maestro_vault::DownloadFileRequest>,
@@ -242,10 +232,7 @@ impl MaestroVaultService for MaestroVault {
   {
     let my_request = request.into_inner();
 
-    let ret = self.filesystem.get_file_content(my_request.file_id.as_str());
-    // let ret = std::fs::read(String::from(my_request.user_id.as_str()) + "/" + my_request.file_id.as_str());
-
-    match ret {
+    match self.filesystem.get_file_content(my_request.file_id.as_str()) {
       Ok(read_res) => {
         self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::READ).await;
 
@@ -257,7 +244,7 @@ impl MaestroVaultService for MaestroVault {
     }
   }
 
-    /* loop over open and read, return content */
+    /// loop over open and read, return content
     async fn download_files(
       &self,
       request: tonic::Request<maestro_vault::DownloadFilesRequest>,
@@ -267,17 +254,14 @@ impl MaestroVaultService for MaestroVault {
     let mut status = maestro_vault::DownloadFilesStatus{files: vec!()};
 
     for file in my_request.files {
-      let ret = self.filesystem.get_file_content(file.file_id.as_str());
-      // let ret = std::fs::read(String::from(file.user_id.as_str()) + "/" + file.file_id.as_str());
-
-      match ret {
+      match self.filesystem.get_file_content(file.file_id.as_str()) {
         Ok(read_res) => {
           self.update_logs(file.file_id.as_str(), file.user_id.as_str(), file.disk_id.as_str(), DiskAction::READ).await;
 
           status.files.push(maestro_vault::DownloadFilesElemStatus{file_id: file.file_id, content: read_res})
         },
-        Err(_) => {
-          // todo print err
+        Err(err) => {
+          eprintln!("Line {} in {} : {}", line!(), file!(), err.to_string())
           // todo add file_id to status
         }
       }
@@ -329,12 +313,12 @@ impl MaestroVaultService for MaestroVault {
     status.file = Some(file);
     return Ok(tonic::Response::new(status));
   }
-      /*
-    if file_id exists in request, get_file
-    if disk id get_disk_files, get_files
-    if user id get_user_files, get_files
-    otherwise get_files_disks
-    then filter only what's common between all collected files
+  /**
+   * if file_id exists in request, get_file
+   * if disk id get_disk_files, get_files
+   * if user id get_user_files, get_files
+   * otherwise get_files_disks
+   * then filter only what's common between all collected files
   */
   async fn get_files_meta_info(
     &self,
@@ -359,8 +343,6 @@ impl MaestroVaultService for MaestroVault {
         }
         result
     }
-    /* Should there be only one possible parameter within the 3 ? */
-
     if let Some(user_id) = my_request.user_id {
       match self.filesystem.get_user_files(&user_id) /* todo replace with only getting the file_id */ {
         Ok(cur_user_files) => {
@@ -382,7 +364,6 @@ impl MaestroVaultService for MaestroVault {
           let mut disk_files: Vec<String> = vec![];
 
           for (file_id, _content) in cur_disk_files {
-
             disk_files.push(file_id.clone());
           }
           files.push(disk_files);

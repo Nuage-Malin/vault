@@ -44,9 +44,8 @@ impl CacheFS {
 
     fn get_file_content_from_filepath(&self, path: &str) -> Result<Vec<u8>> {
         // todo put in common methods (mod.rs)
-        let ret = std::fs::read(path);
 
-        match ret {
+        match std::fs::read(path) {
             Ok(content) => {
                 Ok(content)
             }

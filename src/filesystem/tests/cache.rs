@@ -198,7 +198,6 @@ fn _6_get_user_files() {
             assert!(false)
         }
     }
-
 }
 
 #[test]
@@ -222,11 +221,6 @@ fn _7_get_files_store_types() {
             assert!(false)
         }
     }
-
-
-
-
-
 }
 
 #[test]
@@ -261,8 +255,5 @@ fn /* todo give a bigger number (execute at the end) */ _9_remove_file_that_does
         eprintln!("\nNo error when removing inexisting file (there should have been one)");
         assert!(false)
     }
-
 }
-
-
 }
