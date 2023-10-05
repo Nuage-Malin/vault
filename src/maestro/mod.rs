@@ -4,9 +4,9 @@ use std::error::Error;
 
 use bson::oid::ObjectId;
 
-use crate::models::grpc::maestro_vault::StorageType;
+use crate::models::grpc::maestro_vault::{StorageType, DownloadFileStatus, DownloadFilesElemStatus};
 use crate::models::grpc::maestro_vault::{self, maestro_vault_service_server::MaestroVaultService};
-use crate::stats;
+use crate::{stats, my_eprintln};
 use crate::filesystem;
 use crate::models::users_disks::{ApproxUserDiskUpdate, ApproxUserDiskInfo, DiskAction};
 
@@ -17,8 +17,6 @@ pub fn i32_to_storage_type(enum_num: Option<i32>) -> StorageType {
         0 => StorageType::None,
         1 => StorageType::UploadQueue,
         2 => StorageType::DownloadQueue,
-        3 => StorageType::RemoveQueue,
-        4 => StorageType::RequestQueue,
         _ => StorageType::None
       }
     }
@@ -35,8 +33,6 @@ pub fn storage_type_to_i32(enum_num: Option<StorageType>) -> i32 {
         StorageType::None => 0,
         StorageType::UploadQueue => 1,
         StorageType::DownloadQueue => 2,
-        StorageType::RemoveQueue => 3,
-        StorageType::RequestQueue => 4
       }
     }
     None => {
@@ -154,7 +150,7 @@ impl MaestroVaultService for MaestroVault {
                 self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::CREATE).await;
             }
             Some(err) => {
-                eprintln!("{}", err); // todo does that work ?
+                eprintln!("Line {} in {} : {}", line!(), file!(), err); // todo does that work ?
                 status.file_id_failures.push(my_request.file_id)
             }
         }
@@ -204,14 +200,14 @@ impl MaestroVaultService for MaestroVault {
       request: tonic::Request<maestro_vault::RemoveFilesRequest>,
   ) -> Result<tonic::Response<maestro_vault::RemoveFilesStatus>, tonic::Status>
   {
-    let my_requests = request.into_inner();
+    let my_request = request.into_inner();
     let mut status = maestro_vault::RemoveFilesStatus{file_id_failures: vec!()};
 
-    for file_id in my_requests.file_id {
+    for file_id in my_request.file_id {
 
-      match self.filesystem.remove_file(&file_id, &my_requests.user_id, &my_requests.disk_id) {
+      match self.filesystem.remove_file(&file_id, &my_request.user_id, &my_request.disk_id) {
         None => {
-          self.update_logs(file_id.as_str(), my_requests.user_id.as_str(), my_requests.disk_id.as_str(), DiskAction::DELETE).await;
+          self.update_logs(file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::DELETE).await;
         },
         Some(err) => {
           // todo print err
@@ -222,6 +218,23 @@ impl MaestroVaultService for MaestroVault {
     }
     return Ok(tonic::Response::new(status));
   }
+
+  async fn remove_user(&self, request: tonic::Request<maestro_vault::RemoveUserRequest>,
+  ) -> Result<tonic::Response<maestro_vault::RemoveUserStatus>, tonic::Status>
+  {
+    let my_request = request.into_inner();
+    let status = maestro_vault::RemoveUserStatus{};
+
+    match self.filesystem.remove_user(&my_request.user_id) {
+      Some(err) => {
+        return Err(tonic::Status::new(tonic::Code::Aborted, err.to_string()));
+      }
+      None => {
+      }
+    }
+    return Ok(tonic::Response::new(status))
+  }
+
   /// Download
 
     /// open, read, return content
@@ -269,6 +282,35 @@ impl MaestroVaultService for MaestroVault {
     return Ok(tonic::Response::new(status));
   }
 
+    async fn download_storage_type_files(
+      &self,
+      request: tonic::Request<maestro_vault::DownloadStorageTypeFilesRequest>,
+  ) -> Result<tonic::Response<maestro_vault::DownloadFilesStatus>, tonic::Status>
+  {
+    let my_request = request.into_inner();
+    let mut status = maestro_vault::DownloadFilesStatus{files: vec!()};
+
+    match self.filesystem.get_store_type_files(i32_to_storage_type(Some(my_request.store_type))) {
+      Ok(store_type_file_ids) => {
+        for file_id in store_type_file_ids {
+          match self.filesystem.get_file_content(&file_id) {
+            Ok(content) => {
+              let elem = DownloadFilesElemStatus{file_id: file_id, content: content};
+
+              status.files.push(elem);
+            }
+            Err(err) => {
+              return Err(tonic::Status::new(tonic::Code::NotFound, err.to_string()));
+            }
+          }
+        }
+      }
+      Err(err) => {
+        return Err(tonic::Status::new(tonic::Code::Aborted, err.to_string()));
+      }
+    }
+    return Ok(tonic::Response::new(status));
+  }
 
   async fn get_file_meta_info(
     &self,
@@ -313,6 +355,7 @@ impl MaestroVaultService for MaestroVault {
     status.file = Some(file);
     return Ok(tonic::Response::new(status));
   }
+
   /**
    * if file_id exists in request, get_file
    * if disk id get_disk_files, get_files
@@ -430,6 +473,29 @@ impl MaestroVaultService for MaestroVault {
         store_types: store_types,});
     }
 
+    return Ok(tonic::Response::new(status));
+  }
+
+  async fn get_files_disks(
+    &self,
+    request: tonic::Request<maestro_vault::GetFilesDisksRequest>,
+  ) -> Result<tonic::Response<maestro_vault::GetFilesDisksStatus>, tonic::Status> {
+
+    let my_request = request.into_inner();
+    let mut status = maestro_vault::GetFilesDisksStatus{disk_ids: vec![]};
+
+
+    for file_id in my_request.file_ids {
+      match self.filesystem.get_file_disk(&file_id) {
+        Ok(disk_id) => {
+          status.disk_ids.push(disk_id);
+        }
+        Err(err) => {
+          // my_eprintln!(); // todo
+          status.disk_ids.push("".to_string());
+        }
+      }
+    }
     return Ok(tonic::Response::new(status));
   }
 
