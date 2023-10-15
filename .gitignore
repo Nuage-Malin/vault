@@ -11,6 +11,8 @@ Cargo.lock
 
 # Else
 TODO
+.vscode
+.idea
 
 # Tests
 64781e773236c1aef30e6189

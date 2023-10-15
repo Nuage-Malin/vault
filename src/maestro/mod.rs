@@ -100,6 +100,8 @@ impl MaestroVaultService for MaestroVault {
   ) -> Result<tonic::Response<maestro_vault::UploadFileStatus>, tonic::Status>
   // TODO mutualise code with function upload_files
   {
+    my_eprintln!("Request: upload_file"); /* todo create procedure logger module */
+
     // create directories for users with user_id
     // file is stored with the path : "user_id/file_id"
     // allowing easy browsing through users files (as they are all in the directory "users_id")
@@ -140,6 +142,7 @@ impl MaestroVaultService for MaestroVault {
   ) -> Result<tonic::Response<maestro_vault::UploadFilesStatus>, tonic::Status>
   // TODO mutualise code with function upload_file
   {
+    my_eprintln!("Request: upload_files"); /* todo create procedure logger module */
 
     let my_requests = request.into_inner();
     let mut status = maestro_vault::UploadFilesStatus{file_id_failures: vec!()};
@@ -163,6 +166,8 @@ impl MaestroVaultService for MaestroVault {
     request: tonic::Request<maestro_vault::ModifyFileRequest>,
   ) -> Result<tonic::Response<maestro_vault::ModifyFileStatus>, tonic::Status>
   {
+    my_eprintln!("Request: modify_file"); /* todo create procedure logger module */
+
     let my_request: maestro_vault::ModifyFileRequest = request.into_inner();
     match self.filesystem.set_file_content(&my_request.file_id, my_request.content) {
       None => {
@@ -180,12 +185,24 @@ impl MaestroVaultService for MaestroVault {
       request: tonic::Request<maestro_vault::RemoveFileRequest>,
   ) -> Result<tonic::Response<maestro_vault::RemoveFileStatus>, tonic::Status>
   {
+    my_eprintln!("Request: remove_file"); /* todo create procedure logger module */
+
     let my_request: maestro_vault::RemoveFileRequest = request.into_inner();
     let status = maestro_vault::RemoveFileStatus{};
+    let disk_id = self.filesystem.get_file_disk(&my_request.file_id);
 
-    match self.filesystem.remove_file(&my_request.file_id, &my_request.user_id, &my_request.disk_id) {
+    if let Err(err) = disk_id {
+        return Err(tonic::Status::new(tonic::Code::Aborted, err.to_string()));
+    }
+    let user_id = self.filesystem.get_file_user(&my_request.file_id);
+
+    if let Err(err) = user_id {
+        return Err(tonic::Status::new(tonic::Code::Aborted, err.to_string()));
+    }
+
+    match self.filesystem.remove_file(&my_request.file_id) {
       None => {
-        self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::DELETE).await;
+        self.update_logs(my_request.file_id.as_str(), &user_id.unwrap(), &disk_id.unwrap(), DiskAction::DELETE).await;
       }
       Some(err) => {
         return Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()));
@@ -200,18 +217,27 @@ impl MaestroVaultService for MaestroVault {
       request: tonic::Request<maestro_vault::RemoveFilesRequest>,
   ) -> Result<tonic::Response<maestro_vault::RemoveFilesStatus>, tonic::Status>
   {
+    my_eprintln!("Request: remoeve_files"); /* todo create procedure logger module */
+
     let my_request = request.into_inner();
     let mut status = maestro_vault::RemoveFilesStatus{file_id_failures: vec!()};
 
     for file_id in my_request.file_id {
+      let disk_id = self.filesystem.get_file_disk(&file_id);
+      if let Err(err) = &disk_id {
+        my_eprintln!("{}", err.to_string());
+      }
+      let user_id = self.filesystem.get_file_user(&file_id);
+      if let Err(err) = &user_id {
+        my_eprintln!("{}", err.to_string());
+      }
 
-      match self.filesystem.remove_file(&file_id, &my_request.user_id, &my_request.disk_id) {
+      match self.filesystem.remove_file(&file_id) {
         None => {
-          self.update_logs(file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::DELETE).await;
+          self.update_logs(&file_id, &user_id.unwrap(), &disk_id.unwrap(), DiskAction::DELETE).await;
         },
         Some(err) => {
-          // todo print err
-          eprintln!("Line {} in {} : {}", line!(), file!(), err.to_string());
+          my_eprintln!("{}", err.to_string());
           status.file_id_failures.push(file_id)
         }
       }
@@ -222,6 +248,8 @@ impl MaestroVaultService for MaestroVault {
   async fn remove_user(&self, request: tonic::Request<maestro_vault::RemoveUserRequest>,
   ) -> Result<tonic::Response<maestro_vault::RemoveUserStatus>, tonic::Status>
   {
+    my_eprintln!("Request: remove_user"); /* todo create procedure logger module */
+
     let my_request = request.into_inner();
     let status = maestro_vault::RemoveUserStatus{};
 
@@ -243,6 +271,8 @@ impl MaestroVaultService for MaestroVault {
       request: tonic::Request<maestro_vault::DownloadFileRequest>,
   ) -> Result<tonic::Response<maestro_vault::DownloadFileStatus>, tonic::Status>
   {
+    my_eprintln!("Request: download_file"); /* todo create procedure logger module */
+
     let my_request = request.into_inner();
 
     match self.filesystem.get_file_content(my_request.file_id.as_str()) {
@@ -263,6 +293,8 @@ impl MaestroVaultService for MaestroVault {
       request: tonic::Request<maestro_vault::DownloadFilesRequest>,
   ) -> Result<tonic::Response<maestro_vault::DownloadFilesStatus>, tonic::Status>
   {
+    my_eprintln!("Request: download_files"); /* todo create procedure logger module */
+
     let my_request = request.into_inner();
     let mut status = maestro_vault::DownloadFilesStatus{files: vec!()};
 
@@ -287,6 +319,8 @@ impl MaestroVaultService for MaestroVault {
       request: tonic::Request<maestro_vault::DownloadStorageTypeFilesRequest>,
   ) -> Result<tonic::Response<maestro_vault::DownloadFilesStatus>, tonic::Status>
   {
+    my_eprintln!("Request: download_storage_type_files"); /* todo create procedure logger module */
+
     let my_request = request.into_inner();
     let mut status = maestro_vault::DownloadFilesStatus{files: vec!()};
 
@@ -316,6 +350,8 @@ impl MaestroVaultService for MaestroVault {
     &self,
     request: tonic::Request<maestro_vault::GetFileMetaInfoRequest>,
   ) -> Result<tonic::Response<maestro_vault::GetFileMetaInfoStatus>, tonic::Status> {
+    my_eprintln!("Request: get_file_meta_info"); /* todo create procedure logger module */
+
     let my_request = request.into_inner();
     let mut status = maestro_vault::GetFileMetaInfoStatus{file: None};
     let disk: String;
@@ -367,6 +403,8 @@ impl MaestroVaultService for MaestroVault {
     &self,
     request: tonic::Request<maestro_vault::GetFilesMetaInfoRequest>,
   ) -> Result<tonic::Response<maestro_vault::GetFilesMetaInfoStatus>, tonic::Status> {
+    my_eprintln!("Request: get_Files_meta_info"); /* todo create procedure logger module */
+
     let my_request = request.into_inner();
     let mut status = maestro_vault::GetFilesMetaInfoStatus{files: vec![]};
 
@@ -480,6 +518,7 @@ impl MaestroVaultService for MaestroVault {
     &self,
     request: tonic::Request<maestro_vault::GetFilesDisksRequest>,
   ) -> Result<tonic::Response<maestro_vault::GetFilesDisksStatus>, tonic::Status> {
+    my_eprintln!("Request: get_files_disks"); /* todo create procedure logger module */
 
     let my_request = request.into_inner();
     let mut status = maestro_vault::GetFilesDisksStatus{disk_ids: vec![]};
