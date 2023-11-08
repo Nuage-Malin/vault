@@ -76,7 +76,16 @@ pub trait UserDiskFilesystem: Send + Sync {
 
     // remove
 
-    fn remove_file(&self, file_id: &str, user_id: &str, disk_id: &str) -> Option<Box<dyn Error + Send>>; // todo remove user_id (use symlink instead of full path) or put optional
+    fn remove_file(&self, file_id: &str) -> Option<Box<dyn Error + Send>>; // todo remove user_id (use symlink instead of full path) or put optional
+
+    /// remove directory and all subfiles without warning, use carefully !
+    fn remove_directory(&self, dirpath: &str) -> Option<Box<dyn Error + Send>>
+    {
+        if let Err(err) = std::fs::remove_dir_all(dirpath) {
+            return Some(Box::new(MyError::new(&(err.to_string()))));
+        }
+        return None
+    }
 
     /// remove user files and directories
     fn remove_user(&self, user_id: &str) -> Option<Box<dyn Error + Send>>
@@ -84,23 +93,14 @@ pub trait UserDiskFilesystem: Send + Sync {
         match self.get_user_files(user_id)/* todo get_user_file_ids instead */ {
             Ok(files) => {
                 for file_id in files.keys() {
-                    match self.get_file_disk(file_id) {
-                        Ok(disk_id) => {
-                            self.remove_file(file_id, user_id, &disk_id);
-                        }
-                        Err(err) => {
-                            my_eprintln!("{}", err.to_string());
-                        }
-                    }
+                    self.remove_file(file_id);
                 }
             }
             Err(err) => {
                 return Some(err)
             }
         }
-        // todo remove_directory
-        // self.remove_directory(self.get_user_filepath(user_id, ""));
-
+        self.remove_directory(&self.get_user_filepath(user_id, ""));
         None
     }
 
@@ -156,9 +156,9 @@ pub trait UserDiskFilesystem: Send + Sync {
             Ok(diskpath) => {
                 let path = Path::new(&diskpath); // get basename which is the directory named with the disk id
 
-                if !path.exists() {
+                /* if !path.exists() {
                     return Err(Box::new(MyError::new(&format!("Line {} in {} : disk path doesn't exist", line!(), file!()))));
-                }
+                } */
                 if let Some(filename) = path.file_name() {
                     if let Some(filename) = filename.to_str() {
                         return Ok(filename.to_string());
@@ -177,9 +177,9 @@ pub trait UserDiskFilesystem: Send + Sync {
             Ok(userpath) => {
                 let path = Path::new(&userpath); // get basename which is the directory named with the user id
 
-                if !path.exists() {
+                /* if !path.exists() {
                     return Err(Box::new(MyError::new(&format!("Line {} in {} : user path doesn't exist", line!(), file!()))));
-                }
+                } */
                 if let Some(filename) = path.file_name() {
                     if let Some(filename) = filename.to_str() {
                         return Ok(filename.to_string());
@@ -259,7 +259,7 @@ pub trait UserDiskFilesystem: Send + Sync {
                                 match err.kind() {
                                     std::io::ErrorKind::AlreadyExists => {}
                                     _ => {
-                                        eprintln!("{}", err);
+                                        my_eprintln!("{}", err);
                                         panic!();
                                     }
                                 }
@@ -270,7 +270,7 @@ pub trait UserDiskFilesystem: Send + Sync {
                         match res {
                             Ok(_) => {}
                             Err(err) => {
-                                eprintln!("{}", err);
+                                my_eprintln!("{}", err);
                                 panic!();
                             }
                         }
@@ -278,7 +278,7 @@ pub trait UserDiskFilesystem: Send + Sync {
                 }
             }
             Err(err) => {
-                eprintln!("{}", err);
+                my_eprintln!("{}", err);
                 panic!()
             }
         }
@@ -295,14 +295,14 @@ pub trait UserDiskFilesystem: Send + Sync {
                         match std::env::set_current_dir("..") {
                             Ok(_) => {}
                             Err(err) => {
-                                eprintln!("Line {} in {} : Could not set current dir to parent : {}", line!(), file!(), err.to_string());
+                                my_eprintln!("Could not set current dir to parent : {}", err.to_string());
                             }
                         }
                     }
                 }
             }
             Err(err) => {
-                eprintln!("Line {} in {} : Could not get current dir : {}", line!(), file!(), err.to_string());
+                my_eprintln!("Could not get current dir : {}", err.to_string());
             }
         }
     }
@@ -364,8 +364,8 @@ impl Default for Box<dyn UserDiskFilesystem> {
     }
 }
 
+/// Select filesystem : If env var cache then cache filesystem, else vault
 pub fn select_filesystem() -> Result<Box<dyn UserDiskFilesystem>> {
-    /// if env var cache then cache filesystem, else vault
 
     let exec_type = env::var("EXEC_TYPE").expect("EXEC_TYPE not set.");
 

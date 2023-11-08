@@ -1,4 +1,4 @@
-use crate::filesystem;
+use crate::{filesystem, my_eprintln};
 use crate::models::grpc::maestro_vault::{self, StorageType};
 
 use std::collections::HashMap;
@@ -24,10 +24,8 @@ impl CacheFS {
         let mut map: HashMap<maestro_vault::StorageType, String> = HashMap::new();
         map.insert(maestro_vault::StorageType::UploadQueue, "upload".to_string());
         map.insert(maestro_vault::StorageType::DownloadQueue, "download".to_string());
-        map.insert(maestro_vault::StorageType::RemoveQueue, "remove".to_string());
         let cache_fs = CacheFS{store_paths: map};
 
-        // todo create and go into cache_fs dir
         cache_fs.cd_home_dir();
         if let Some(err) = cache_fs.create_dir(&cache_fs.get_default_dirpath("")) {
             return Err(err);
@@ -75,6 +73,7 @@ impl CacheFS {
         }
         return None;
     }
+
     fn get_store_type_dirs_from_file(&self, file_id: &str) -> Option<Vec<String>> {
         let mut store_type_dirs: Vec<String> = vec![];
         let dirpath = self.get_default_dirpath(file_id);
@@ -182,11 +181,22 @@ impl filesystem::UserDiskFilesystem for CacheFS {
     }
 
     /* todo : don't require user_id and disk_id anymore */
-    fn remove_file(&self, file_id: &str, user_id: &str, disk_id: &str) -> Option<Box<dyn Error + Send>>{
+    fn remove_file(&self, file_id: &str) -> Option<Box<dyn Error + Send>>{
+
+        // todo useless get disk path instead
+        // same fo user
+        let disk_id = self.get_file_disk(file_id);
+        if let Err(err) = disk_id {
+            return Some(err)
+        }
+        let user_id = self.get_file_user(file_id);
+        if let Err(err) = user_id {
+            return Some(err)
+        }
         /*
-        remove all storage_type location
-        has to be done first because retrieve info from file directory, which is also removed in this function, later
-        */
+         *  remove all storage_type locations
+         *  has to be done first because get_store_type_dirs_from_file retrieves info from file directory, which is also removed in the current function, later
+         */
         if let Some(store_type_dirs) = self.get_store_type_dirs_from_file(file_id) {
             for store_type_dir in store_type_dirs {
                 match self.get_store_type_filepath(&StorageType::None/* use store_type_dir instead of specifying the type */, file_id, Some(&store_type_dir)) {
@@ -204,10 +214,10 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         if let Err(err) = std::fs::remove_dir_all(&self.get_default_dirpath(file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Err(err) = std::fs::remove_file(&self.get_disk_filepath(disk_id, file_id)) {
+        if let Err(err) = std::fs::remove_file(&self.get_disk_filepath(&disk_id.unwrap(), file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Err(err) = std::fs::remove_file(&self.get_user_filepath(user_id, file_id)) {
+        if let Err(err) = std::fs::remove_file(&self.get_user_filepath(&user_id.unwrap(), file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
 
@@ -292,10 +302,10 @@ impl filesystem::UserDiskFilesystem for CacheFS {
             // todo test
             return Ok(files_disks);
         }
-        return Err(Box::new(MyError::new(format!("Line {}, {}: Could not read dir : '{}'", line!(), file!(), self.get_disk_filepath("", "")).as_str())));
+        return Err(Box::new(MyError::new(/* todo format macro like for my_eprintln ? */format!("Line {}, {}: Could not read dir : '{}'", line!(), file!(), self.get_disk_filepath("", "")).as_str())));
     }
 
-    // get_user_files returns map with key: file_id as string, value: content as vector of u8
+    /// get_user_files returns map with key: file_id as string, value: content as vector of u8
     fn get_user_files(&self, user_id: &str) -> Result<HashMap<String, Vec<u8>>>{
         // todo now
         // todo replicate for vault fs
@@ -325,10 +335,11 @@ impl filesystem::UserDiskFilesystem for CacheFS {
                     }
                 }
             }
+        } else {
+            return Err(Box::new(MyError::new(/* todo format macro like for my_eprintln ? */&format!("Line {}, {}: Could not get user files, user '{}' may not exist yet", line!(), file!(), user_id))));
         }
         return Ok(files);
     }
-
 
     fn get_all_files_store_types(&self) -> Result<HashMap<String, Vec<maestro_vault::StorageType>>> {
         let mut store_types: HashMap<String, Vec<maestro_vault::StorageType>> = HashMap::new();
@@ -359,7 +370,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
                                     }
                                 }
                                 Err(err) => {
-                                    eprintln!("Line {} in {} : Could not retrieve file id from filepath '{}' : {}", line!(), file!(), filepath, err.to_string());
+                                    my_eprintln!("Could not retrieve file id from filepath '{}' : {}", filepath, err.to_string());
                                 }
                             }
                         }

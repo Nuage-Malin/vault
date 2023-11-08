@@ -25,3 +25,16 @@ impl fmt::Display for MyError {
         write!(f, "{}", self.message)
     }
 }
+
+#[macro_export]
+macro_rules! my_eprintln {
+    () => {
+        eprint!("\nLine {} in {} : ", line!(), file!()); // Forward the captured arguments to eprintln
+        eprintln!(); // Just call eprintln without any custom processing
+    };
+    ($($arg:tt)*) => {
+        // Add your custom processing here if needed
+        eprint!("\nLine {} in {} : ", line!(), file!()); // Forward the captured arguments to eprintln
+        eprintln!($($arg)*); // Forward the captured arguments to eprintln
+    };
+}

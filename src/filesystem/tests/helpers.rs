@@ -2,7 +2,7 @@
 #[cfg(test)]
 mod tests {
 
-use crate::{filesystem::{cache::CacheFS, tests::tests::{self as fs_tests, FILE_IDS, DISK_ID, FILE_CONTENTS, FILES_STORE_TYPE}, UserDiskFilesystem}, models::grpc::maestro_vault::StorageType};
+use crate::filesystem::{cache::CacheFS, UserDiskFilesystem};
 
 use lazy_static::lazy_static;
 

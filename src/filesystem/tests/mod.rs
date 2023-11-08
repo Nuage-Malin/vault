@@ -66,7 +66,8 @@ fn _0_select_filesystem_cache() {
     }
 }
 pub const FILES_STORE_TYPE: [StorageType; 3] = [StorageType::None, StorageType::UploadQueue, StorageType::None];
-pub const FILE_IDS: [&str; 3] = ["11111cdf4734c1aef76e5254", "22222e97f0c3a443451351b0", "33333b1bf0c3a254678257b1"];
+
+pub const FILE_IDS: [&str; 3] = ["fedcba000000000000000000", "fedcba111111111111111111", "fedcba222222222222222222"];
 // pub const FILE_CONTENTS: [&str; 3] = ["upload_file_test", "upload_files_test", "other_string"];
 
 use lazy_static::lazy_static;
@@ -75,7 +76,7 @@ lazy_static! {
     pub static ref FILE_CONTENTS: [Vec<u8>; 3] = [vec!(b'h', b'e', b'l', b'l', b'o'), vec!(b'g', b'o', b'o', b'd', b'a', b'y'), vec!(b'm', b'a', b't', b'e')];
 }
 // pub const FILE_CONTENTS: [&[u8]; 3] = [b"upload_file_test", b"upload_files_test", b"other_string"];
-pub const USER_ID: &str = "14361e624622c1aef30e5425";
-pub const DISK_ID: &str = "14361e456568c1aef56e765a";
+pub const USER_ID: &str = "cafe00000000000000000000";
+pub const DISK_ID: &str = "beef00000000000000000000";
 }
 

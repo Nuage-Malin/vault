@@ -63,14 +63,23 @@ impl filesystem::UserDiskFilesystem for VaultFS {
         None
     }
 
-    fn remove_file(&self, file_id: &str, user_id: &str, disk_id: &str) -> Option<Box<dyn Error + Send>> {
+    fn remove_file(&self, file_id: &str) -> Option<Box<dyn Error + Send>> {
+        let disk_id = self.get_file_disk(&file_id);
+        if let Err(err) = disk_id {
+            return Some(err)
+        }
+        let user_id = self.get_file_user(&file_id);
+        if let Err(err) = user_id {
+            return Some(err)
+        }
+
         if let Err(err) = std::fs::remove_dir_all(self.get_default_dirpath(&file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Err(err) = std::fs::remove_file(&self.get_disk_filepath(&disk_id, &file_id)) {
+        if let Err(err) = std::fs::remove_file(&self.get_disk_filepath(&disk_id.unwrap(), &file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
-        if let Err(err) = std::fs::remove_file(&self.get_user_filepath(&user_id, &file_id)) {
+        if let Err(err) = std::fs::remove_file(&self.get_user_filepath(&user_id.unwrap(), &file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         return None
@@ -157,6 +166,8 @@ impl filesystem::UserDiskFilesystem for VaultFS {
                     // todo test
                 }
             }
+        } else {
+            return Err(Box::new(MyError::new(/* todo format macro like for my_eprintln ? */&format!("Line {}, {}: Could not get user files, user '{}' may not exist yet", line!(), file!(), user_id))));
         }
         return Ok(files);
     }
@@ -202,6 +213,7 @@ impl VaultFS {
         }
         return Ok(vault_fs);
     }
+
     fn get_fileid_from_link(&self, path: &str) -> Result<String> {
         let act_path = Path::new(path);
 

@@ -4,7 +4,7 @@ use std::error::Error;
 
 use bson::oid::ObjectId;
 
-use crate::models::grpc::maestro_vault::{StorageType, DownloadFileStatus, DownloadFilesElemStatus};
+use crate::models::grpc::maestro_vault::{StorageType, DownloadFilesElemStatus};
 use crate::models::grpc::maestro_vault::{self, maestro_vault_service_server::MaestroVaultService};
 use crate::{stats, my_eprintln};
 use crate::filesystem;
@@ -531,6 +531,7 @@ impl MaestroVaultService for MaestroVault {
         }
         Err(err) => {
           // my_eprintln!(); // todo
+          my_eprintln!("{}", err.to_string());
           status.disk_ids.push("".to_string());
         }
       }
