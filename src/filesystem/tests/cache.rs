@@ -287,4 +287,12 @@ fn _11_remove_user() {
 
     // todo check if user directory is still there
 }
+
+#[test]
+fn _12_remove_already_removed_user_test() {
+    if let None = FS.remove_user(fs_tests::USER_ID) {
+        my_eprintln!("\nErroneously removed already removed user");
+        assert!(false)
+    }
+}
 }

@@ -95,10 +95,18 @@ fn _11_remove_user() {
     let user_filepath = FS.get_user_filepath(fs_tests::USER_ID, "");
 
     if Path::new(&user_filepath).exists() {
-        my_eprintln!("\nUser directory still exists (it should be removed) : {}", &user_filepath);
+        my_eprintln!("\nUser directory still exists (it should've been removed) : {}", &user_filepath);
         assert!(false)
     }
 
     // todo check if user directory is still there
+}
+
+#[test]
+fn _12_remove_already_removed_user_test() {
+    if let None = FS.remove_user(fs_tests::USER_ID) {
+        my_eprintln!("\nErroneously removed already removed user");
+        assert!(false)
+    }
 }
 }

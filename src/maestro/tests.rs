@@ -271,7 +271,33 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn _10_remove_user_test() {
+    async fn _10_remove_non_existing_user_test() {
+        match MaestroVault::new() {
+            Ok(vault) => {
+                let rm_user_request = maestro_vault::RemoveUserRequest{
+                    user_id: "cafe99999999999999999999".to_string()
+                };
+                let request = tonic::Request::new(rm_user_request);
+
+                match vault.remove_user(request).await {
+                    Ok(_) => {
+                        eprintln!("\nError, removed non existing user without returning an error");
+                        assert!(false);
+                    },
+                    Err(_) => {
+                    }
+                }
+            }
+            Err(error) => {
+                eprintln!("\nError: {}", error);
+                assert!(false);
+            }
+        }
+    }
+
+
+    #[tokio::test]
+    async fn _11_remove_user_test() {
         match MaestroVault::new() {
             Ok(vault) => {
                 let rm_user_request = maestro_vault::RemoveUserRequest{
@@ -305,31 +331,6 @@ mod tests {
                     Err(error) => {
                         eprintln!("\nError: {}", error);
                         assert!(false);
-                    }
-                }
-            }
-            Err(error) => {
-                eprintln!("\nError: {}", error);
-                assert!(false);
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn _11_remove_non_existing_user_test() {
-        match MaestroVault::new() {
-            Ok(vault) => {
-                let rm_user_request = maestro_vault::RemoveUserRequest{
-                    user_id: "cafe99999999999999999999".to_string()
-                };
-                let request = tonic::Request::new(rm_user_request);
-
-                match vault.remove_user(request).await {
-                    Ok(_) => {
-                        eprintln!("\nError, removed non existing user without returning an error");
-                        assert!(false);
-                    },
-                    Err(_) => {
                     }
                 }
             }
