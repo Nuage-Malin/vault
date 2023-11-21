@@ -85,7 +85,7 @@ impl filesystem::UserDiskFilesystem for VaultFS {
         return None
     }
 
-    fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error>> {
+    fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error + Send>> {
         let filepath = self.get_default_filepath(file_id);
         let res = std::fs::write(&filepath, &content);
 

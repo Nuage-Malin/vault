@@ -72,7 +72,7 @@ pub trait UserDiskFilesystem: Send + Sync {
 
     // set
 
-    fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error>>;
+    fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error + Send>>;
 
     // remove
 

@@ -1,14 +1,12 @@
 mod tests;
-use std::str::FromStr;
 use std::error::Error;
 
-use bson::oid::ObjectId;
 
 use crate::models::grpc::maestro_vault::{StorageType, DownloadFilesElemStatus};
 use crate::models::grpc::maestro_vault::{self, maestro_vault_service_server::MaestroVaultService};
 use crate::{stats, my_eprintln};
 use crate::filesystem;
-use crate::models::users_disks::{ApproxUserDiskUpdate, ApproxUserDiskInfo, DiskAction};
+use crate::models::users_disks::DiskAction;
 
 pub fn i32_to_storage_type(enum_num: Option<i32>) -> StorageType {
   match enum_num {
@@ -58,37 +56,35 @@ impl MaestroVault {
     }
   }
 
-  async fn update_logs(&self, file_id: &str, user_id: &str, disk_id: &str, action: DiskAction) {
+  async fn update_logs(&self, file_id: &str, user_id: Option<String>, disk_id: Option<String>, action: DiskAction) {
+      let mut my_disk_id = String::from("");
+      let mut my_user_id = String::from("");
+
+      if user_id.is_some() {
+        my_user_id = user_id.unwrap();
+      } else {
+        match self.filesystem.get_file_user(&file_id) {
+          Ok(file_user) => {
+            my_user_id = file_user;
+          }
+          Err(_) => {}
+        }
+      }
+      if disk_id.is_some() {
+        my_disk_id = disk_id.unwrap();
+      } else {
+        match self.filesystem.get_file_disk(file_id) {
+          Ok(file_disk) => {
+            my_disk_id = file_disk;
+          }
+          Err(_) => {}
+        }
+      }
       let db = stats::users_disks::MongoRepo::init().await;
 
-      db.update_disk_logs(
-        ApproxUserDiskUpdate{
-          disk_id: ObjectId::from_str(disk_id).unwrap(),
-          user_id: ObjectId::from_str(user_id).unwrap(),
-          file_id: ObjectId::from_str(file_id).unwrap(),
-          action: action
-        },
-        ApproxUserDiskInfo{
-          disk_id: ObjectId::from_str(disk_id).unwrap(),
-          user_id: ObjectId::from_str(user_id).unwrap()
-        }
-      ).await;
+      db.update_disk_logs(&my_disk_id, &my_user_id, file_id, action).await;
   }
 }
-
-/*
-fn dir_exists(path: String) -> bool { // todo put that into filesystem
-  // TODO create dir by maestro once,
-  //  do not call this method everytime upload_file is called
-  // todo make a card on improving the services coherency
-  let resp = std::fs::create_dir(path);
-
-  if resp.is_err() {
-    return false;
-  }
-
-  return true;
-} */
 
 #[tonic::async_trait]
 impl MaestroVaultService for MaestroVault {
@@ -129,7 +125,7 @@ impl MaestroVaultService for MaestroVault {
         Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()))
       }
       None => {
-        self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::CREATE).await;
+        self.update_logs(my_request.file_id.as_str(), Some(my_request.user_id), Some(my_request.disk_id), DiskAction::CREATE).await;
         Ok(tonic::Response::new(maestro_vault::UploadFileStatus{}))
       }
     }
@@ -150,7 +146,7 @@ impl MaestroVaultService for MaestroVault {
     for my_request in my_requests.files {
         match self.filesystem.create_file(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), my_request.content, Some(i32_to_storage_type(my_request.store_type))) {
             None => {
-                self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::CREATE).await;
+                self.update_logs(my_request.file_id.as_str(), Some(my_request.user_id), Some(my_request.disk_id), DiskAction::CREATE).await;
             }
             Some(err) => {
                 eprintln!("Line {} in {} : {}", line!(), file!(), err); // todo does that work ?
@@ -167,16 +163,17 @@ impl MaestroVaultService for MaestroVault {
   ) -> Result<tonic::Response<maestro_vault::ModifyFileStatus>, tonic::Status>
   {
     my_eprintln!("Request: modify_file"); /* todo create procedure logger module */
-
     let my_request: maestro_vault::ModifyFileRequest = request.into_inner();
+
     match self.filesystem.set_file_content(&my_request.file_id, my_request.content) {
       None => {
-        Ok(tonic::Response::new(maestro_vault::ModifyFileStatus{}))
+        self.update_logs(&my_request.file_id, None, None, DiskAction::WRITE).await;
       }
       Some(err) => {
-        Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()))
+        return Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()));
       }
     }
+    return Ok(tonic::Response::new(maestro_vault::ModifyFileStatus{}));
   }
 
   /// unlink
@@ -188,27 +185,16 @@ impl MaestroVaultService for MaestroVault {
     my_eprintln!("Request: remove_file"); /* todo create procedure logger module */
 
     let my_request: maestro_vault::RemoveFileRequest = request.into_inner();
-    let status = maestro_vault::RemoveFileStatus{};
-    let disk_id = self.filesystem.get_file_disk(&my_request.file_id);
-
-    if let Err(err) = disk_id {
-        return Err(tonic::Status::new(tonic::Code::Aborted, err.to_string()));
-    }
-    let user_id = self.filesystem.get_file_user(&my_request.file_id);
-
-    if let Err(err) = user_id {
-        return Err(tonic::Status::new(tonic::Code::Aborted, err.to_string()));
-    }
 
     match self.filesystem.remove_file(&my_request.file_id) {
       None => {
-        self.update_logs(my_request.file_id.as_str(), &user_id.unwrap(), &disk_id.unwrap(), DiskAction::DELETE).await;
+        self.update_logs(my_request.file_id.as_str(), None, None, DiskAction::DELETE).await;
       }
       Some(err) => {
         return Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()));
       }
     }
-    return Ok(tonic::Response::new(status));
+    return Ok(tonic::Response::new(maestro_vault::RemoveFileStatus{}));
   }
 
   /// loop over unlink
@@ -222,19 +208,10 @@ impl MaestroVaultService for MaestroVault {
     let my_request = request.into_inner();
     let mut status = maestro_vault::RemoveFilesStatus{file_id_failures: vec!()};
 
-    for file_id in my_request.file_id {
-      let disk_id = self.filesystem.get_file_disk(&file_id);
-      if let Err(err) = &disk_id {
-        my_eprintln!("{}", err.to_string());
-      }
-      let user_id = self.filesystem.get_file_user(&file_id);
-      if let Err(err) = &user_id {
-        my_eprintln!("{}", err.to_string());
-      }
-
+    for file_id in my_request.file_ids {
       match self.filesystem.remove_file(&file_id) {
         None => {
-          self.update_logs(&file_id, &user_id.unwrap(), &disk_id.unwrap(), DiskAction::DELETE).await;
+          self.update_logs(&file_id, None, None, DiskAction::DELETE).await;
         },
         Some(err) => {
           my_eprintln!("{}", err.to_string());
@@ -277,7 +254,7 @@ impl MaestroVaultService for MaestroVault {
 
     match self.filesystem.get_file_content(my_request.file_id.as_str()) {
       Ok(read_res) => {
-        self.update_logs(my_request.file_id.as_str(), my_request.user_id.as_str(), my_request.disk_id.as_str(), DiskAction::READ).await;
+        self.update_logs(my_request.file_id.as_str(), None, None, DiskAction::READ).await;
 
         Ok(tonic::Response::new(maestro_vault::DownloadFileStatus{content: read_res}))
       },
@@ -301,7 +278,7 @@ impl MaestroVaultService for MaestroVault {
     for file in my_request.files {
       match self.filesystem.get_file_content(file.file_id.as_str()) {
         Ok(read_res) => {
-          self.update_logs(file.file_id.as_str(), file.user_id.as_str(), file.disk_id.as_str(), DiskAction::READ).await;
+          self.update_logs(file.file_id.as_str(), None, None, DiskAction::READ).await;
 
           status.files.push(maestro_vault::DownloadFilesElemStatus{file_id: file.file_id, content: read_res})
         },

@@ -34,6 +34,27 @@ done
 
 rm -rf cache_fs vault_fs
 
+# docker exec -t maestro-mongo-1 mongosh -u $MONGO_USERNAME -p $MONGO_PASSWORD --eval "use logs" \
+    # --eval 'db.diskWakeUp.insertOne({{  "_id": {    ObjectId"61e2b2cc16fbdf1b5e3e5c60")  },  "diskId": {    ObjectId"14361e456568c1aef56e765a")  },  "startup": {    "date": {      "$date": {        "$numberLong": "1642032000000"      }    },    "isManual": false  },  "shutdown": null,  "periodInfo": null}})' ## Insert diskwakeup for test purposes
+
+DISK_WAKE_UP='db.diskWakeup.insertOne(
+{
+  "_id": ObjectId(),
+  "diskId": ObjectId("beef11111111111111111111"),
+  "startup": {
+    "date": {
+      "$date": {
+        "$numberLong": "1642032000000"
+      }
+    },
+    "isManual": false
+  },
+  "shutdown": null,
+  "periodInfo": null
+})'
+
+docker exec -t maestro-mongo-1 mongosh -u "$MONGO_USERNAME" -p "$MONGO_PASSWORD" --eval "use logs" --eval "$DISK_WAKE_UP"
+
 cargo test -- --nocapture --test-threads=1 --color always
 
 tree cache_fs vault_fs

@@ -224,7 +224,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         None
     }
 
-    fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error>>{
+    fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error + Send>>{
         let filepath = self.get_default_filepath(file_id);
 
         match std::fs::write(&filepath, &content) {

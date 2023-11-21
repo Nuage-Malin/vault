@@ -31,6 +31,7 @@ pub struct ApproxUserDiskInfo {
 #[derive(Debug)]
 pub enum DiskAction { // todo protobuf with enum so that it is compatible with any other service
     READ,
+    WRITE,
     CREATE,
     DELETE
 }
