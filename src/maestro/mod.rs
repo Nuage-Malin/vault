@@ -57,32 +57,32 @@ impl MaestroVault {
   }
 
   async fn update_logs(&self, file_id: &str, user_id: Option<String>, disk_id: Option<String>, action: DiskAction) {
-      let mut my_disk_id = String::from("");
-      let mut my_user_id = String::from("");
+      let mut my_disk_id: Option<String> = None;
+      let mut my_user_id: Option<String> = None;
 
       if user_id.is_some() {
-        my_user_id = user_id.unwrap();
+        my_user_id = user_id;
       } else {
         match self.filesystem.get_file_user(&file_id) {
           Ok(file_user) => {
-            my_user_id = file_user;
+            my_user_id = Some(file_user);
           }
           Err(_) => {}
         }
       }
       if disk_id.is_some() {
-        my_disk_id = disk_id.unwrap();
+        my_disk_id = disk_id;
       } else {
         match self.filesystem.get_file_disk(file_id) {
           Ok(file_disk) => {
-            my_disk_id = file_disk;
+            my_disk_id = Some(file_disk);
           }
           Err(_) => {}
         }
       }
       let db = stats::users_disks::MongoRepo::init().await;
 
-      db.update_disk_logs(&my_disk_id, &my_user_id, file_id, action).await;
+      db.update_disk_logs(my_disk_id, my_user_id, file_id, action).await;
   }
 }
 

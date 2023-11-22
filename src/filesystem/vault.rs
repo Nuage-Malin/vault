@@ -120,7 +120,7 @@ impl filesystem::UserDiskFilesystem for VaultFS {
                 if let Ok(file) = entry {
                     let link = std::fs::read_link(file.path());
 
-                    print!("{}", link.unwrap().display());
+                    // print!("{}", link.unwrap().display());
                     // todo finish
 
                 }

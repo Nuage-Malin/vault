@@ -43,8 +43,8 @@ impl MongoRepo {
     pub async fn disk_update_insert(&self, disk_update: ApproxUserDiskUpdate) -> Result<InsertOneResult>
     {
         match self.user_disk_update.insert_one(UserDiskUpdate {
-            disk_id: Some(disk_update.disk_id),
-            user_id: Some(disk_update.user_id),
+            disk_id: disk_update.disk_id,
+            user_id: disk_update.user_id,
             file_id: Some(disk_update.file_id),
             action: match disk_update.action {
                 DiskAction::READ => "r".to_string(),
@@ -81,8 +81,8 @@ impl MongoRepo {
                         system.refresh_all();
                         let my_user_disk_info = UserDiskInfo{
                             _id: ObjectId::new(),
-                            disk_id: Some(disk_update.disk_id),
-                            user_id: Some(disk_update.user_id),
+                            disk_id: disk_update.disk_id,
+                            user_id: disk_update.user_id,
                             disk_wakeup: Some(disk_wakeup._id),
                             used_memory: system.used_memory(),
                             created_at: bson::DateTime::now()
@@ -109,17 +109,31 @@ impl MongoRepo {
         // &format!("Line {} in {} : Could not get file store type", line!(), file!())
     }
 
-    pub async fn update_disk_logs(&self, disk_id: &str, user_id: &str, file_id: &str, action: DiskAction)
+    pub async fn update_disk_logs(&self, disk_id: Option<String>, user_id: Option<String>, file_id: &str, action: DiskAction)
     {
+        let my_disk_id: Option<ObjectId> = if disk_id.is_some() { Some(ObjectId::from_str(&disk_id.unwrap()).unwrap())} else {None};
+        let my_user_id: Option<ObjectId> = if user_id.is_some() { Some(ObjectId::from_str(&user_id.unwrap()).unwrap())} else {None};
+        let my_file_id: ObjectId;
+
+        match ObjectId::from_str(file_id) {
+            Ok(id) => {
+                my_file_id = id;
+            }
+            Err(r) => {
+                my_eprintln!("Incorrect file id, aborting update_disk_logs");
+                return;
+            }
+        };
+
         let disk_update = ApproxUserDiskUpdate{
-            disk_id: ObjectId::from_str(disk_id).unwrap(),
-            user_id: ObjectId::from_str(user_id).unwrap(),
-            file_id: ObjectId::from_str(file_id).unwrap(),
+            disk_id: my_disk_id,
+            user_id: my_user_id,
+            file_id: my_file_id,
             action: action
         };
         let disk_info = ApproxUserDiskInfo{
-            disk_id: ObjectId::from_str(disk_id).unwrap(),
-            user_id: ObjectId::from_str(user_id).unwrap()
+            disk_id: my_disk_id,
+            user_id: my_user_id
         };
         let disk_update = self.disk_update_insert(disk_update).await;
 

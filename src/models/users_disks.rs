@@ -14,9 +14,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserDiskInfo {
 	pub _id: ObjectId,
-    #[serde(rename="diskId")]
+    #[serde(rename="diskId", skip_serializing_if = "Option::is_none")]
 	pub disk_id: Option<ObjectId>,
-    #[serde(rename="userId")]
+    #[serde(rename="userId", skip_serializing_if = "Option::is_none")]
 	pub user_id: Option<ObjectId>,
     #[serde(rename="diskWakeup")]
 	pub disk_wakeup: Option<ObjectId>, // Ref to diskWakeup
@@ -28,10 +28,10 @@ pub struct UserDiskInfo {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApproxUserDiskInfo {
-    #[serde(rename="userId")]
-	pub disk_id: ObjectId,
-    #[serde(rename="userId")]
-	pub user_id: ObjectId
+	#[serde(rename = "diskId", skip_serializing_if = "Option::is_none")]
+	pub disk_id: Option<ObjectId>,
+	#[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
+	pub user_id: Option<ObjectId>
 }
 
 #[derive(Debug)]
@@ -62,8 +62,8 @@ pub struct UserDiskUpdate {
  * without time (which will be set at time of insert)
  */
 pub struct ApproxUserDiskUpdate {
-	pub disk_id: ObjectId,
-	pub user_id: ObjectId,
+	pub disk_id: Option<ObjectId>,
+	pub user_id: Option<ObjectId>,
 	pub file_id: ObjectId, // Not sure to keep this data
 	pub action: DiskAction, // Enum: read | write | delete
 }

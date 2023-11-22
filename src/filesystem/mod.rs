@@ -135,7 +135,7 @@ pub trait UserDiskFilesystem: Send + Sync {
     }
 
     fn get_userpath_from_file(&self, file_id: &str) -> Result<String> {
-        let link_path = self.get_default_dirpath(file_id) + "/disk";
+        let link_path = self.get_default_dirpath(file_id) + "/user";
 
         match std::fs::read_link(link_path) {
             Ok(target_path) => {

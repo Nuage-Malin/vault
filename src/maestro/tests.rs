@@ -337,7 +337,6 @@ mod tests {
         }
     }
 
-
     #[tokio::test]
     async fn _11_remove_user_test() {
         match MaestroVault::new() {
