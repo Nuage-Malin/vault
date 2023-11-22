@@ -8,8 +8,8 @@ mod tests {
 
     pub const FILE_IDS: [&str; 6] = ["abcdef000000000000000000", "abcdef111111111111111111", "abcdef222222222222222222", "abcdef333333333333333333", "abcdef44444444444444444", "abcdef55555555555555555"];
     pub const FILE_CONTENTS: [&str; 6] = ["content of file 0", "content of file 1", "content of file 2", "content of file 3", "content of file 4", "content of file 5"];
-    pub const USER_ID: &str = "cafe11111111111111111111";
-    pub const DISK_ID: &str = "beef11111111111111111111";
+    pub const USER_ID: &str = "655ceb05ee2884fd5e16872a";
+    pub const DISK_ID: &str = "655ceb05ee2884fd5e16872b";
 
     #[tokio::test()]
     async fn _01_upload_file_test() {

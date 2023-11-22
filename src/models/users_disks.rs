@@ -1,7 +1,7 @@
 
 use bson::oid::ObjectId;
 // use bson::oid::primitive;
-use bson::{DateTime};
+use bson::DateTime;
 // use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 
@@ -13,18 +13,24 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserDiskInfo {
-    #[serde(skip_serializing_if = "Option::is_none")]
+	pub _id: ObjectId,
+    #[serde(rename="diskId")]
 	pub disk_id: Option<ObjectId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename="userId")]
 	pub user_id: Option<ObjectId>,
-    // #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename="diskWakeup")]
 	pub disk_wakeup: Option<ObjectId>, // Ref to diskWakeup
+    #[serde(rename="usedMemory")]
 	pub used_memory: u64, // Used memory by the user
+    #[serde(rename="createdAt")]
 	pub created_at: DateTime
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ApproxUserDiskInfo {
+    #[serde(rename="userId")]
 	pub disk_id: ObjectId,
+    #[serde(rename="userId")]
 	pub user_id: ObjectId
 }
 
@@ -81,10 +87,10 @@ pub struct DiskWakeup {
 	pub _id: ObjectId,
     #[serde(rename = "diskId")]
 	pub disk_id: ObjectId, // Disk serial number
-	pub startup: Event,
+	pub startup: Option<Event>, // todo error with that : data retrieved by find_one doesn't seem to fit inside of that
     // #[serde(rename = "periodInfo")]
 	// period_info: PeriodInfo,
-	pub shutdown: Event, // null until disk shutdown
+	pub shutdown: Option<Event>, // null until disk shutdown // todo or error with that
     #[serde(rename = "periodInfo")]
-	pub period_info: PeriodInfo // Disk consumption since disk startup, null until disk shutdown
+	pub period_info: Option<PeriodInfo> // Disk consumption since disk startup, null until disk shutdown
 }

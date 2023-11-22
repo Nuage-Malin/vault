@@ -39,8 +39,7 @@ rm -rf cache_fs vault_fs
 
 DISK_WAKE_UP='db.diskWakeup.insertOne(
 {
-  "_id": ObjectId(),
-  "diskId": ObjectId("beef11111111111111111111"),
+  "diskId": ObjectId("655ceb05ee2884fd5e16872b"),
   "startup": {
     "date": {
       "$date": {

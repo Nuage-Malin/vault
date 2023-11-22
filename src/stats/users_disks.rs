@@ -1,15 +1,19 @@
 
 use crate::models::users_disks::{UserDiskInfo, ApproxUserDiskInfo, UserDiskUpdate, ApproxUserDiskUpdate, DiskAction, DiskWakeup};
-use bson::{doc};
-use mongodb::{Client, Collection, results::InsertOneResult, error::Result, options::FindOneOptions};
+use bson::doc;
+use mongodb::{Client, Collection, results::InsertOneResult, options::FindOneOptions};
 use bson::oid::ObjectId;
 
 extern crate sysinfo;
-use sysinfo::{SystemExt, Disk};
+use sysinfo::SystemExt;
 
 use std::str::FromStr;
+use std::error::Error;
 use std::env;
-// use std::error::Error;
+use crate::filesystem::error::MyError;
+use crate::my_eprintln;
+
+type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 
 pub struct MongoRepo {
     user_disk_info: Collection<UserDiskInfo>,
@@ -38,7 +42,7 @@ impl MongoRepo {
 
     pub async fn disk_update_insert(&self, disk_update: ApproxUserDiskUpdate) -> Result<InsertOneResult>
     {
-        self.user_disk_update.insert_one(UserDiskUpdate {
+        match self.user_disk_update.insert_one(UserDiskUpdate {
             disk_id: Some(disk_update.disk_id),
             user_id: Some(disk_update.user_id),
             file_id: Some(disk_update.file_id),
@@ -49,7 +53,14 @@ impl MongoRepo {
                 DiskAction::DELETE => "d".to_string()
             },
             created_at: bson::DateTime::now()
-        }, None).await
+        }, None).await {
+            Ok(res) => {
+                return Ok(res)
+            }
+            Err(r) => {
+                return Err(Box::new(MyError::new(&r.to_string())));
+            }
+        }
     }
 
     pub async fn disk_used_memory_update(&self, disk_update: ApproxUserDiskInfo) -> Result<InsertOneResult>
@@ -58,21 +69,44 @@ impl MongoRepo {
             .sort(doc! { "startup.date": -1 })
             .build();
         let disk_wakeup = self.disk_wakeup.find_one(
-            doc!{"diskId": disk_update.disk_id, /* "shutdown": None */}, options
+            doc!{"diskId": disk_update.disk_id /* "shutdown": None */}, options
             // error here : disk_update.disk_id is object id but in db is disk id
-        ).await?
-        .expect("No previous disk wake up found");
-        let mut system = sysinfo::System::new_all();
+        ).await;
+        match disk_wakeup {
+            Ok(res) => {
+                match res {
+                    Some(disk_wakeup) => {
+                        let mut system = sysinfo::System::new_all();
 
-        system.refresh_all();
-        // println!("Disk: {}", system.used_memory());
-        self.user_disk_info.insert_one(UserDiskInfo{
-            disk_id: Some(disk_update.disk_id),
-            user_id: Some(disk_update.user_id),
-            disk_wakeup: Some(disk_wakeup._id),
-            used_memory: system.used_memory(),
-            created_at: bson::DateTime::now()
-        }, None).await
+                        system.refresh_all();
+                        let my_user_disk_info = UserDiskInfo{
+                            _id: ObjectId::new(),
+                            disk_id: Some(disk_update.disk_id),
+                            user_id: Some(disk_update.user_id),
+                            disk_wakeup: Some(disk_wakeup._id),
+                            used_memory: system.used_memory(),
+                            created_at: bson::DateTime::now()
+                        };
+                        match self.user_disk_info.insert_one(my_user_disk_info, None).await {
+                            Ok(res) => {
+                                return Ok(res);
+                            }
+                            Err(r) => {
+                                return Err(Box::new(MyError::new(&r.to_string())));
+                            }
+                        }
+                    }
+                    None => {
+                        return Err(Box::new(MyError::new("Error TODO"))); // todo log error
+                    }
+                }
+            }
+            Err(r) => {
+                my_eprintln!("{}", r); // todo print this error only once (choose between this call and the one later)
+                return Err(Box::new(MyError::new(&r.to_string())));
+            }
+        }
+        // &format!("Line {} in {} : Could not get file store type", line!(), file!())
     }
 
     pub async fn update_disk_logs(&self, disk_id: &str, user_id: &str, file_id: &str, action: DiskAction)
@@ -92,8 +126,8 @@ impl MongoRepo {
         match disk_update {
             Ok(_) => {}
             Err(err) => {
-                eprintln!("Could not insert disk update log");
-                eprintln!("{}", err);
+                my_eprintln!("Could not insert disk update log");
+                my_eprintln!("{}", err);
             }
         };
         let disk_used_memory = self.disk_used_memory_update(disk_info).await;
@@ -101,8 +135,8 @@ impl MongoRepo {
         match disk_used_memory {
             Ok(_) => {}
             Err(err) => {
-                eprintln!("Could not insert updated used disk memory :");
-                eprintln!("{}", err);
+                my_eprintln!("Could not insert updated used disk memory :");
+                my_eprintln!("{}", err);
             }
         };
     }
