@@ -1,7 +1,6 @@
 mod tests;
 use std::error::Error;
 
-
 use crate::models::grpc::maestro_vault::{StorageType, DownloadFilesElemStatus};
 use crate::models::grpc::maestro_vault::{self, maestro_vault_service_server::MaestroVaultService};
 use crate::{stats, my_eprintln};
@@ -63,7 +62,7 @@ impl MaestroVault {
       if user_id.is_some() {
         my_user_id = user_id;
       } else {
-        match self.filesystem.get_file_user(&file_id) {
+        match self.filesystem.get_file_user(file_id) {
           Ok(file_user) => {
             my_user_id = Some(file_user);
           }
@@ -185,10 +184,12 @@ impl MaestroVaultService for MaestroVault {
     my_eprintln!("Request: remove_file"); /* todo create procedure logger module */
 
     let my_request: maestro_vault::RemoveFileRequest = request.into_inner();
+    let disk: Option<String> = if let Ok(disk_res) = self.filesystem.get_file_disk(&my_request.file_id) {Some(disk_res)} else {None};
+    let user: Option<String> = if let Ok(user_res) = self.filesystem.get_file_user(&my_request.file_id) {Some(user_res)} else {None};
 
     match self.filesystem.remove_file(&my_request.file_id) {
       None => {
-        self.update_logs(my_request.file_id.as_str(), None, None, DiskAction::DELETE).await;
+        self.update_logs(&my_request.file_id, user, disk, DiskAction::DELETE).await;
       }
       Some(err) => {
         return Err(tonic::Status::new(tonic::Code::PermissionDenied, err.to_string()));
