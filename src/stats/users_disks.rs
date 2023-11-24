@@ -22,7 +22,8 @@ pub struct MongoRepo {
 }
 
 impl MongoRepo {
-    pub async fn init() -> Self {
+    pub async fn init() -> Self
+    {
         let client_uri = env::var("MONGODB_URI").expect("MONGODB_URI not set.");
         // println!("{}", client_uri);
 
@@ -93,17 +94,25 @@ impl MongoRepo {
                             }
                             Err(r) => {
                                 return Err(Box::new(MyError::new(&r.to_string())));
+                                // todo instead of returning error then, when printing, appending line number and file name :
+                                // append line number and filename to error when error occurs,
+                                // then return that and print it such as
                             }
                         }
                     }
                     None => {
-                        return Err(Box::new(MyError::new("Error TODO"))); // todo log error
+                        return Err(Box::new(MyError::new("Didn't find any previous DiskWakeup"))); // todo log error
+                        // todo instead of returning error then, when printing, appending line number and file name :
+                        // append line number and filename to error when error occurs,
+                        // then return that and print it such as
                     }
                 }
             }
             Err(r) => {
-                my_eprintln!("{}", r); // todo print this error only once (choose between this call and the one later)
                 return Err(Box::new(MyError::new(&r.to_string())));
+                // todo instead of returning error then, when printing, appending line number and file name :
+                // append line number and filename to error when error occurs,
+                // then return that and print it such as
             }
         }
         // &format!("Line {} in {} : Could not get file store type", line!(), file!())
@@ -119,7 +128,7 @@ impl MongoRepo {
             Ok(id) => {
                 my_file_id = id;
             }
-            Err(r) => {
+            Err(_) => {
                 my_eprintln!("Incorrect file id, aborting update_disk_logs");
                 return;
             }

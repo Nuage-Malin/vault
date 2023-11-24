@@ -6,7 +6,7 @@ mod tests {
     use crate::maestro::MaestroVault;
     use crate::models::grpc::maestro_vault::maestro_vault_service_server::MaestroVaultService;
 
-    pub const FILE_IDS: [&str; 6] = ["abcdef000000000000000000", "abcdef111111111111111111", "abcdef222222222222222222", "abcdef333333333333333333", "abcdef44444444444444444", "abcdef55555555555555555"];
+    pub const FILE_IDS: [&str; 6] = ["655ceb05ee2884fd5e168721", "655ceb05ee2884fd5e168722", "655ceb05ee2884fd5e168723", "655ceb05ee2884fd5e168724", "655ceb05ee2884fd5e168725", "655ceb05ee2884fd5e168726"];
     pub const FILE_CONTENTS: [&str; 6] = ["content of file 0", "content of file 1", "content of file 2", "content of file 3", "content of file 4", "content of file 5"];
     pub const USER_ID: &str = "655ceb05ee2884fd5e16872a";
     pub const DISK_ID: &str = "655ceb05ee2884fd5e16872b";

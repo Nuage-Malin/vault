@@ -210,9 +210,12 @@ impl MaestroVaultService for MaestroVault {
     let mut status = maestro_vault::RemoveFilesStatus{file_id_failures: vec!()};
 
     for file_id in my_request.file_ids {
+      let disk: Option<String> = if let Ok(disk_res) = self.filesystem.get_file_disk(&file_id) {Some(disk_res)} else {None};
+      let user: Option<String> = if let Ok(user_res) = self.filesystem.get_file_user(&file_id) {Some(user_res)} else {None};
+
       match self.filesystem.remove_file(&file_id) {
         None => {
-          self.update_logs(&file_id, None, None, DiskAction::DELETE).await;
+          self.update_logs(&file_id, user, disk, DiskAction::DELETE).await;
         },
         Some(err) => {
           my_eprintln!("{}", err.to_string());
