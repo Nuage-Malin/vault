@@ -88,6 +88,9 @@ impl MaestroVault {
 #[tonic::async_trait]
 impl MaestroVaultService for MaestroVault {
 
+
+  /// Upload ///
+
   /// open and write
   async fn upload_file(
       &self,
@@ -175,6 +178,9 @@ impl MaestroVaultService for MaestroVault {
     return Ok(tonic::Response::new(maestro_vault::ModifyFileStatus{}));
   }
 
+
+  /// Remove ///
+
   /// unlink
   async fn remove_file(
       &self,
@@ -244,10 +250,11 @@ impl MaestroVaultService for MaestroVault {
     return Ok(tonic::Response::new(status))
   }
 
-  /// Download
 
-    /// open, read, return content
-    async fn download_file(
+  /// Download ///
+
+  /// open, read, return content
+  async fn download_file(
       &self,
       request: tonic::Request<maestro_vault::DownloadFileRequest>,
   ) -> Result<tonic::Response<maestro_vault::DownloadFileStatus>, tonic::Status>
@@ -268,8 +275,8 @@ impl MaestroVaultService for MaestroVault {
     }
   }
 
-    /// loop over open and read, return content
-    async fn download_files(
+  /// loop over open and read, return content
+  async fn download_files(
       &self,
       request: tonic::Request<maestro_vault::DownloadFilesRequest>,
   ) -> Result<tonic::Response<maestro_vault::DownloadFilesStatus>, tonic::Status>
@@ -295,7 +302,7 @@ impl MaestroVaultService for MaestroVault {
     return Ok(tonic::Response::new(status));
   }
 
-    async fn download_storage_type_files(
+  async fn download_storage_type_files(
       &self,
       request: tonic::Request<maestro_vault::DownloadStorageTypeFilesRequest>,
   ) -> Result<tonic::Response<maestro_vault::DownloadFilesStatus>, tonic::Status>
@@ -326,6 +333,9 @@ impl MaestroVaultService for MaestroVault {
     }
     return Ok(tonic::Response::new(status));
   }
+
+
+  /// Get info ///
 
   async fn get_file_meta_info(
     &self,

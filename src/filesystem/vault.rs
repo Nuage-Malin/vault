@@ -187,6 +187,7 @@ impl filesystem::UserDiskFilesystem for VaultFS {
     fn get_store_type_files(&self, _store_type: StorageType) -> Result<Vec<String>> {
         return Err(Box::new(MyError::new("Could not get file store types : method not implemented for vault")));
     }
+
     fn get_home_dir(&self) -> String {
         String::from("vault_fs")
     }

@@ -3,6 +3,7 @@ mod vault;
 mod cache;
 mod tests;
 pub mod error;
+pub mod disks;
 
 use crate::models::grpc::maestro_vault::{self, StorageType};
 use crate::my_eprintln;
@@ -22,7 +23,8 @@ pub trait UserDiskFilesystem: Send + Sync {
 
     // todo replicate methods to handle multiple files at once
 
-    // create
+
+    /// Create ///
 
     fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<StorageType>) -> Option<Box<dyn Error + Send>>;
 
@@ -70,11 +72,11 @@ pub trait UserDiskFilesystem: Send + Sync {
     }
 
 
-    // set
+    /// Set ///
 
     fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error + Send>>;
 
-    // remove
+    /// Remove ///
 
     fn remove_file(&self, file_id: &str) -> Option<Box<dyn Error + Send>>; // todo remove user_id (use symlink instead of full path) or put optional
 
@@ -104,7 +106,9 @@ pub trait UserDiskFilesystem: Send + Sync {
         None
     }
 
-    // get
+
+    /// Get ///
+
     fn get_file_content(&self, file_id: &str) -> Result<Vec<u8>>;
 
     /// get_disk_files returns map with key: file_id as string, value: content as vector of u8
@@ -241,7 +245,8 @@ pub trait UserDiskFilesystem: Send + Sync {
 
     fn get_home_dir(&self) -> String;
 
-    // utils
+
+    /// Utils ///
 
     /// cd_home_dir : create home dir if does not exist, then go into it
     fn cd_home_dir(&self) -> Option<Box<dyn Error>> {
