@@ -3,7 +3,6 @@ mod vault;
 mod cache;
 mod tests;
 pub mod error;
-pub mod disks;
 
 use crate::models::grpc::maestro_vault::{self, StorageType};
 use crate::my_eprintln;
