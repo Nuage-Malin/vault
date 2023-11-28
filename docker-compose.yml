@@ -1,7 +1,7 @@
 version: '3.9'
 
 services:
-    vault:
+    vault: ## todo how to launch vault and vault-cache with 2 different container names
         build:
             dockerfile: Dockerfile
         container_name: vault
@@ -9,6 +9,7 @@ services:
             MONGO_URI: ${MONGO_URI}
             VAULT_ADDRESS: ${VAULT_ADDRESS}
             VAULT_PORT: ${VAULT_PORT}
+            EXEC_TYPE: ${EXEC_TYPE}
 
         expose:
             - ${VAULT_PORT}
@@ -19,3 +20,6 @@ services:
 networks:
     maestro:vault:
         external: true
+
+## todo mongo
+## todo choose between mongo.env and putting mongo variables into vault.env
