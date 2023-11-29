@@ -2,15 +2,11 @@ version: '3.9'
 
 services:
     vault: ## todo how to launch vault and vault-cache with 2 different container names
-        build:
-            dockerfile: Dockerfile
-        container_name: vault
-        environment:
-            MONGO_URI: ${MONGO_URI}
-            VAULT_ADDRESS: ${VAULT_ADDRESS}
-            VAULT_PORT: ${VAULT_PORT}
-            EXEC_TYPE: ${EXEC_TYPE}
-
+        build: .
+        container_name: ${EXEC_TYPE}
+        env_file:
+            - ./env/mongo.env
+            - ${VAULT_ENV_FILE}
         expose:
             - ${VAULT_PORT}
         networks:
