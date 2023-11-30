@@ -426,7 +426,7 @@ pub fn select_filesystem() -> Result<Box<dyn UserDiskFilesystem>> {
             }
 
         }
-        "cache" => {
+        "vault-cache" => {
             match cache::CacheFS::new() {
                 Ok(cache) => {
                     return Ok(Box::new(cache));
