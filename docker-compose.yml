@@ -7,8 +7,8 @@ services:
         env_file:
             - ./env/mongo.env
             - ${VAULT_ENV_FILE}
-        expose:
-            - ${VAULT_PORT}
+        ports:
+            - ${VAULT_PORT}:${VAULT_PORT}
         networks:
             - maestro:vault
         restart: on-failure
