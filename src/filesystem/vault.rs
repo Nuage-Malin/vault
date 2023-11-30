@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::any::Any;
 use std::io::Write;
-use std::path::Path;
 
 use super::UserDiskFilesystem;
 use super::MyError;
@@ -111,26 +110,6 @@ impl filesystem::UserDiskFilesystem for VaultFS {
         }
     }
 
-    fn get_disk_files(&self, disk_id: &str) -> Result<HashMap<String, Vec<u8>>> {
-        // std::fs::read_link(path)
-        let files: HashMap<String, Vec<u8>> = HashMap::new();
-
-        if let Ok(entries) = std::fs::read_dir(self.get_disk_filepath(disk_id, "")) {
-            for entry in entries {
-                if let Ok(file) = entry {
-                    let link = std::fs::read_link(file.path());
-
-                    // print!("{}", link.unwrap().display());
-                    // todo finish
-
-                }
-
-            }
-        }
-
-        return Ok(files);
-    }
-
     fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>> {
         let files_disks: HashMap<String, HashMap<String, Vec<u8>>> = HashMap::new();
 
@@ -147,7 +126,7 @@ impl filesystem::UserDiskFilesystem for VaultFS {
                     if let Some(filepath) = file_entry.path().to_str() {
 
                         // println!("file path : {}", basename(filepath));
-                        match self.get_fileid_from_link(filepath) {
+                        match self.get_fileid_from_path(filepath) {
                             Ok (fileid) => {
                                 match std::fs::read(file_entry.path()) {
                                     Ok(content) => {
@@ -215,16 +194,6 @@ impl VaultFS {
         return Ok(vault_fs);
     }
 
-    fn get_fileid_from_link(&self, path: &str) -> Result<String> {
-        let act_path = Path::new(path);
-
-        if let Some(id) = act_path.file_name() {
-            if let Some(file_id) = id.to_str() {
-                return Ok(String::from(file_id));
-            }
-        }
-        return Err(Box::new(MyError::new("Could not get original filepath from symbolic link path")));
-    }
     // fn get_user_symlink_base_path(&self) {
     // }
 }

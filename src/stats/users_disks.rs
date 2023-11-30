@@ -24,7 +24,7 @@ pub struct MongoRepo {
 impl MongoRepo {
     pub async fn init() -> Self
     {
-        let client_uri = env::var("MONGODB_URI").expect("MONGODB_URI not set.");
+        let client_uri = env::var("MONGO_URI").expect("MONGO_URI not set.");
         // println!("{}", client_uri);
 
         let client = Client::with_uri_str(client_uri).await.unwrap();

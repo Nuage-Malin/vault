@@ -53,7 +53,7 @@ impl CacheFS {
         }
     }
 
-    fn get_fileid_from_link(&self, path: &str) -> Result<String> {
+    fn get_fileid_from_path(&self, path: &str) -> Result<String> {
         let act_path = Path::new(path);
 
         if let Some(id) = act_path.file_name() {
@@ -243,39 +243,6 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         self.get_file_content_from_filepath(&path)
     }
 
-    // get_disk_files returns map with key: file_id as string, value: content as vector of u8
-    fn get_disk_files(&self, disk_id: &str) -> Result<HashMap<String, Vec<u8>>>{
-        let mut files: HashMap<String, Vec<u8>> = HashMap::new();
-
-        if let Ok(entries) = std::fs::read_dir(self.get_disk_filepath(disk_id, "")) {
-            for entry in entries {
-                if let Ok(file_entry) = entry {
-                    if let Some(filepath) = file_entry.path().to_str() {
-
-                        // println!("file path : {}", basename(filepath));
-                        match self.get_fileid_from_link(filepath) {
-                            Ok (fileid) => {
-                                match std::fs::read(file_entry.path()) {
-                                    Ok(content) => {
-                                        files.insert(fileid /* filename of link */, content);
-                                    }
-                                    Err(err) => {
-                                        return Err(Box::new(err));
-                                    }
-                                }
-                            }
-                            Err(err) => {
-                                return Err(err);
-                            }
-                        }
-                    }
-                    // todo test
-                }
-            }
-        }
-        return Ok(files);
-    }
-
     // get_files_disks returns map with key: disk_id, value: map with key: file_id as string, value: content as vector of u8
     fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>>{
         // todo replicate for vault fs
@@ -317,7 +284,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
                     if let Some(filepath) = file_entry.path().to_str() {
 
                         // println!("file path : {}", basename(filepath));
-                        match self.get_fileid_from_link(filepath) {
+                        match self.get_fileid_from_path(filepath) {
                             Ok (fileid) => {
                                 match std::fs::read(file_entry.path()) {
                                     Ok(content) => {
@@ -352,7 +319,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
                 for entry in entries {
                     if let Ok(file_entry) = entry {
                         if let Some(filepath) = file_entry.path().to_str() {
-                            match self.get_fileid_from_link(filepath) {
+                            match self.get_fileid_from_path(filepath) {
                                 Ok(file_id) => {
                                     // check if file is already in map
                                     match store_types.entry(file_id) {

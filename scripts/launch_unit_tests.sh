@@ -2,6 +2,7 @@
 
 rm -rf 64781e773236c1aef30e6189
 set -o allexport
+source ./env/mongo.env
 source ./env/vault.env
 set +o allexport
 

@@ -111,7 +111,37 @@ pub trait UserDiskFilesystem: Send + Sync {
     fn get_file_content(&self, file_id: &str) -> Result<Vec<u8>>;
 
     /// get_disk_files returns map with key: file_id as string, value: content as vector of u8
-    fn get_disk_files(&self, disk_id: &str) -> Result<HashMap<String, Vec<u8>>>;
+    fn get_disk_files(&self, disk_id: &str) -> Result<HashMap<String, Vec<u8>>> {
+        let mut files: HashMap<String, Vec<u8>> = HashMap::new();
+
+        if let Ok(entries) = std::fs::read_dir(self.get_disk_filepath(disk_id, "")) {
+            for entry in entries {
+                if let Ok(file_entry) = entry {
+                    if let Some(filepath) = file_entry.path().to_str() {
+
+                        // println!("file path : {}", basename(filepath));
+                        match self.get_fileid_from_path(filepath) {
+                            Ok (fileid) => {
+                                match std::fs::read(file_entry.path()) {
+                                    Ok(content) => {
+                                        files.insert(fileid /* filename of link */, content);
+                                    }
+                                    Err(err) => {
+                                        return Err(Box::new(err));
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                return Err(err);
+                            }
+                        }
+                    }
+                    // todo test
+                }
+            }
+        }
+        return Ok(files);
+    }
 
     /// get_files_disks returns map with key: disk_id, value: map with key: file_id as string, value: content as vector of u8
     fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>>;
@@ -228,6 +258,17 @@ pub trait UserDiskFilesystem: Send + Sync {
         } else {
             user_path + user_id + "/" + file_id
         }
+    }
+
+    fn get_fileid_from_path(&self, path: &str) -> Result<String> {
+        let act_path = Path::new(path);
+
+        if let Some(id) = act_path.file_name() {
+            if let Some(file_id) = id.to_str() {
+                return Ok(String::from(file_id));
+            }
+        }
+        return Err(Box::new(MyError::new("Could not get original filepath from symbolic link path")));
     }
 
     /// return hashmap with file_id as key, store_types as value
