@@ -1,9 +1,8 @@
 
 use bson::oid::ObjectId;
-// use bson::oid::primitive;
 use bson::DateTime;
-// use chrono::DateTime;
 use serde::{Deserialize, Serialize};
+use sysinfo::DiskKind;
 
 /**
  * Add: On disk shutdown
@@ -93,4 +92,21 @@ pub struct DiskWakeup {
 	pub shutdown: Option<Event>, // null until disk shutdown // todo or error with that
     #[serde(rename = "periodInfo")]
 	pub period_info: Option<PeriodInfo> // Disk consumption since disk startup, null until disk shutdown
+}
+
+#[derive(Debug, Clone)]
+pub struct AvailableDisk {
+	pub uid: String,
+	/// type either HDD, SSD or unknown
+    pub type_: DiskKind,
+	/// device_name as string
+    pub device_name: String,
+    // file_system: Vec<u8>,
+	/// mount_point as dirpath
+    pub mount_point: String,
+	/// total_space in bytes
+    pub total_space: u64,
+	/// available_space in bytes
+    pub available_space: u64
+    // is_removable: bool,
 }
