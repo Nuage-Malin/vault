@@ -49,7 +49,7 @@ fn _0_select_filesystem_vault() {
 
 #[test]
 fn _0_select_filesystem_cache() {
-    env::set_var("EXEC_TYPE", "cache");
+    env::set_var("EXEC_TYPE", "vault-cache");
 
     match filesystem::select_filesystem() {
         Ok(fs) => {

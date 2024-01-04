@@ -323,10 +323,10 @@ mod tests {
 
                 match vault.remove_user(request).await {
                     Ok(_) => {
-                        eprintln!("\nError, removed non existing user without returning an error");
-                        assert!(false);
+                        // eprintln!("\nError, removed non existing user without returning an error");
                     },
                     Err(_) => {
+                        assert!(false);
                     }
                 }
             }
@@ -392,10 +392,10 @@ mod tests {
                 let request = tonic::Request::new(rm_user_request);
                 match vault.remove_user(request).await {
                     Ok(_) => {
-                        eprintln!("\nError, removed already removed user without returning an error");
-                        assert!(false);
+                        // eprintln!("\nError, removed already removed user without returning an error");
                     },
                     Err(_) => {
+                        assert!(false);
                     }
                 }
             }

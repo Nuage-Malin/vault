@@ -266,8 +266,8 @@ fn _10_remove_non_existing_user() {
         my_eprintln!("\nDirectory '{}' makes test `{}` impossible", non_existing_user_id, std::stringify!(_10_remove_non_existing_user));
         assert!(false)
     }
-    if let None = FS.remove_user(non_existing_user_id) {
-        my_eprintln!("\nNo error when removing non existing user (there should have been one)");
+    if let Some(_err) = FS.remove_user(non_existing_user_id) {
+        my_eprintln!("\nError when removing non existing user (there should have been none)");
         assert!(false)
     }
 }
@@ -290,8 +290,8 @@ fn _11_remove_user() {
 
 #[test]
 fn _12_remove_already_removed_user_test() {
-    if let None = FS.remove_user(fs_tests::USER_ID) {
-        my_eprintln!("\nErroneously removed already removed user");
+    if let Some(_err) = FS.remove_user(fs_tests::USER_ID) {
+        my_eprintln!("\nErroneously returned error");
         assert!(false)
     }
 }

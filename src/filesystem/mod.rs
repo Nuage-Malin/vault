@@ -96,12 +96,19 @@ pub trait UserDiskFilesystem: Send + Sync {
                 for file_id in files.keys() {
                     self.remove_file(file_id);
                 }
+                match self.remove_directory(&self.get_user_filepath(user_id, "")) {
+                    None => {
+                        // todo test
+                    }
+                    Some (err) => {
+                        return Some(err);
+                    }
+                }
             }
-            Err(err) => {
-                return Some(err)
+            Err(_err) => {
+                self.remove_directory(&self.get_user_filepath(user_id, ""));
             }
         }
-        self.remove_directory(&self.get_user_filepath(user_id, ""));
         None
     }
 
