@@ -1,12 +1,11 @@
 use crate::filesystem;
+use crate::filesystem::UserDiskFilesystem;
 use crate::models::grpc::maestro_vault::{self, StorageType};
 
 use std::collections::HashMap;
 use std::error::Error;
 use std::any::Any;
-use std::io::Write;
 
-use super::UserDiskFilesystem;
 use super::MyError;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
@@ -15,7 +14,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 pub struct VaultFS{}
 
 impl filesystem::UserDiskFilesystem for VaultFS {
-    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, _: Option<StorageType>) -> Option<Box<dyn Error + Send>> {
+    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: &[u8], _: Option<StorageType>) -> Option<Box<dyn Error + Send>> {
         if !self.is_cur_dir_home_dir() { // todo useless if we check it in class instantiation (function `new`) ?
             return Some(Box::new(MyError::new("Current directory should be home directory of the filesystem")));
         }
@@ -28,11 +27,12 @@ impl filesystem::UserDiskFilesystem for VaultFS {
             }
             match std::fs::File::create(&filepath) {
                 Ok(mut file) => {
-                    match file.write_all(&content) /* todo add encryption */ {
-                        Ok(_) => {}
-                        Err(err) => {
+                    // todo use set_content instead
+                    match self.set_file_content(&file, content) {
+                        Some(err) => {
                             return Some(Box::new(MyError::new(&(err.to_string()))));
                         }
+                        None => {}
                     }
                 }
                 Err(err) => {
@@ -84,32 +84,6 @@ impl filesystem::UserDiskFilesystem for VaultFS {
         return None
     }
 
-    fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error + Send>> {
-        let filepath = self.get_default_filepath(file_id);
-        let res = std::fs::write(&filepath, &content);
-
-        match res {
-            Ok(_) => {None}
-            Err(err) => {
-                return Some(Box::new(MyError::new(&(err.to_string()))));
-
-            }
-        }
-    }
-
-    fn get_file_content(&self, file_id: &str) -> Result<Vec<u8>> {
-        let res = std::fs::read(self.get_default_filepath(file_id));
-
-        match res {
-            Ok(content) => {
-                Ok(content)
-            }
-            Err(err) => {
-                Err(Box::new(err))
-            }
-        }
-    }
-
     fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>> {
         let files_disks: HashMap<String, HashMap<String, Vec<u8>>> = HashMap::new();
 
@@ -128,12 +102,12 @@ impl filesystem::UserDiskFilesystem for VaultFS {
                         // println!("file path : {}", basename(filepath));
                         match self.get_fileid_from_path(filepath) {
                             Ok (fileid) => {
-                                match std::fs::read(file_entry.path()) {
+                                match self.get_file_content_from_filepath(filepath) {
                                     Ok(content) => {
                                         files.insert(fileid /* filename of link */, content);
                                     }
                                     Err(err) => {
-                                        return Err(Box::new(err));
+                                        return Err(err);
                                     }
                                 }
                             }

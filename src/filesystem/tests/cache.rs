@@ -62,7 +62,7 @@ fn _02_create_file_storage_type_test() {
 
 #[test]
 fn _03_get_file_content_test() {
-    match FS.get_file_content(fs_tests::FILE_IDS[0]) {
+    match FS.get_file_content_from_id(fs_tests::FILE_IDS[0]) {
         Ok(content) => {
             if content != fs_tests::FILE_CONTENTS[0] {
                 my_eprintln!("\nContent fetched from file is different than when created");
