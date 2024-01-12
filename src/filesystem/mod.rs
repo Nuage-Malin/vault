@@ -3,6 +3,7 @@ mod vault;
 mod cache;
 mod tests;
 pub mod error;
+pub mod disks;
 
 use crate::models::grpc::maestro_vault::{self, StorageType};
 use crate::my_eprintln;
@@ -80,8 +81,7 @@ pub trait UserDiskFilesystem: Send + Sync {
     fn remove_file(&self, file_id: &str) -> Option<Box<dyn Error + Send>>; // todo remove user_id (use symlink instead of full path) or put optional
 
     /// remove directory and all subfiles without warning, use carefully !
-    fn remove_directory(&self, dirpath: &str) -> Option<Box<dyn Error + Send>>
-    {
+    fn remove_directory(&self, dirpath: &str) -> Option<Box<dyn Error + Send>> {
         if let Err(err) = std::fs::remove_dir_all(dirpath) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
@@ -89,8 +89,7 @@ pub trait UserDiskFilesystem: Send + Sync {
     }
 
     /// remove user files and directories
-    fn remove_user(&self, user_id: &str) -> Option<Box<dyn Error + Send>>
-    {
+    fn remove_user(&self, user_id: &str) -> Option<Box<dyn Error + Send>> {
         match self.get_user_files(user_id)/* todo get_user_file_ids instead */ {
             Ok(files) => {
                 for file_id in files.keys() {
@@ -389,7 +388,6 @@ pub trait UserDiskFilesystem: Send + Sync {
                             }
                         }
                     }
-                    // println!("pwd : {}", act_dir); // todo remove
                 }
             }
             _ => {
@@ -412,7 +410,7 @@ impl std::fmt::Debug for dyn UserDiskFilesystem {
 
 impl Default for Box<dyn UserDiskFilesystem> {
     fn default() -> Self {
-        Box::new(vault::VaultFS{})
+        return Box::new(vault::VaultFS::new().expect("Default VaultFS could not be loaded"));
     }
 }
 
@@ -431,7 +429,6 @@ pub fn select_filesystem() -> Result<Box<dyn UserDiskFilesystem>> {
                     return Err(err);
                 }
             }
-
         }
         "vault-cache" => {
             match cache::CacheFS::new() {

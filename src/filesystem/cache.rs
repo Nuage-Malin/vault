@@ -243,7 +243,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         self.get_file_content_from_filepath(&path)
     }
 
-    // get_files_disks returns map with key: disk_id, value: map with key: file_id as string, value: content as vector of u8
+    /// Returns map with key: disk_id, value: map with key: file_id as string, value: content as vector of u8
     fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>>{
         // todo replicate for vault fs
         let mut files_disks: HashMap<String, HashMap<String, Vec<u8>>> = HashMap::new();
@@ -272,7 +272,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         return Err(Box::new(MyError::new(/* todo format macro like for my_eprintln ? */format!("Line {}, {}: Could not read dir : '{}'", line!(), file!(), self.get_disk_filepath("", "")).as_str())));
     }
 
-    /// get_user_files returns map with key: file_id as string, value: content as vector of u8
+    /// Returns map with key: file_id as string, value: content as vector of u8
     fn get_user_files(&self, user_id: &str) -> Result<HashMap<String, Vec<u8>>>{
         // todo now
         // todo replicate for vault fs

@@ -28,7 +28,6 @@ fn _01_create_file_test() {
         }
     }
 
-
     if !file_exists {
 
         eprintln!("\nCould not create file {}", FS.get_default_filepath(fs_tests::FILE_IDS[0]));
