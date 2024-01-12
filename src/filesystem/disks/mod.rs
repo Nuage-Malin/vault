@@ -14,7 +14,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 
 const DISK_IDS_DIR: &str = "/dev/disk/by-uuid/";
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CurrentDisks{
     sys: sysinfo::System
 }
@@ -72,8 +72,8 @@ impl CurrentDisks {
                 type_: disk.kind(),
                 device_name: device_name,
                 mount_point: mount_point,
-                total_space: disk.total_space(),
-                available_space: disk.available_space()
+                total_space: disk.total_space() as usize,
+                available_space: disk.available_space() as usize
             });
         }
         return compatible_disks
@@ -171,7 +171,7 @@ impl CurrentDisks {
         return compatible_disks;
     }
 
-    pub fn select_disk_for_file(&self, file_size: u64) -> Result<AvailableDisk> {
+    pub fn select_disk_for_file(&self, file_size: usize) -> Result<AvailableDisk> {
         let mut disk_with_biggest_available_space = AvailableDisk{
             uid: String::new(),
             type_: sysinfo::DiskKind::Unknown(0),
@@ -182,7 +182,6 @@ impl CurrentDisks {
 
         for disk in &self.get_disks() {
             if file_size < disk.available_space {
-                println!("Enough space on this disk !");
                 if disk.available_space > disk_with_biggest_available_space.available_space {
                     disk_with_biggest_available_space = disk.clone();
                 }

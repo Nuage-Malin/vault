@@ -381,7 +381,6 @@ pub trait UserDiskFilesystem: Send + Sync {
                             }
                         }
                     }
-                    // println!("pwd : {}", act_dir); // todo remove
                 }
             }
             _ => {
@@ -404,7 +403,7 @@ impl std::fmt::Debug for dyn UserDiskFilesystem {
 
 impl Default for Box<dyn UserDiskFilesystem> {
     fn default() -> Self {
-        Box::new(vault::VaultFS{})
+        return Box::new(vault::VaultFS::new().expect("Default VaultFS could not be loaded"));
     }
 }
 
@@ -423,7 +422,6 @@ pub fn select_filesystem() -> Result<Box<dyn UserDiskFilesystem>> {
                     return Err(err);
                 }
             }
-
         }
         "vault-cache" => {
             match cache::CacheFS::new() {

@@ -40,7 +40,7 @@ fn get_compatible_disks_test() {
 
 #[test]
 fn select_disk_for_file_test() {
-    let file_sizes: [u64; 7] = [2, 10, 100, 1000, 10000, 100000, 1000000];
+    let file_sizes: [usize; 7] = [2, 10, 100, 1000, 10000, 100000, 1000000];
 
     for file_size in file_sizes {
         match DISKS.select_disk_for_file(file_size) {
@@ -61,7 +61,7 @@ fn select_disk_for_file_test() {
 
 #[test]
 fn select_disk_for_file_too_big_returns_error_test() {
-    let file_size: u64 = u64::MAX;
+    let file_size: usize = usize::MAX;
 
     match DISKS.select_disk_for_file(file_size) {
         Ok(_) => {

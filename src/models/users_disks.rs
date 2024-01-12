@@ -105,8 +105,8 @@ pub struct AvailableDisk {
 	/// mount_point as dirpath
     pub mount_point: String,
 	/// total_space in bytes
-    pub total_space: u64,
+    pub total_space: usize,
 	/// available_space in bytes
-    pub available_space: u64
+    pub available_space: usize
     // is_removable: bool,
 }
