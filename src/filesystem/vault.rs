@@ -55,13 +55,12 @@ impl filesystem::UserDiskFilesystem for VaultFS {
                         None => {}
                     }
                 }
-                Err(err) => {
-                    if err.to_string() == "Permission denied (os error 13)" {
-                        actual_filepath = filepath.clone();
-                    } else {
-                        eprintln!("to string '{}'", err.to_string());
-                        return Some(Box::new(MyError::new(&(err.to_string()))));
-                    }
+                Err(_err) => {
+                    // if err.to_string() == "Permission denied (os error 13)" {
+                    actual_filepath = filepath.clone();
+                    // } else {
+                        // return Some(Box::new(MyError::new(&(err.to_string()))));
+                    // }
                 }
             }
         }
