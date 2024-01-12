@@ -1,13 +1,14 @@
-use crate::{filesystem, my_eprintln};
+use crate::filesystem;
+use crate::filesystem::UserDiskFilesystem;
+use crate::my_eprintln;
+
 use crate::models::grpc::maestro_vault::{self, StorageType};
 
 use std::collections::HashMap;
 use std::error::Error;
 use std::any::Any;
-use std::io::Write;
 use std::path::Path;
 
-use super::UserDiskFilesystem;
 use super::MyError;
 // use super::error;
 
@@ -38,19 +39,6 @@ impl CacheFS {
         }
 
         return Ok(cache_fs);
-    }
-
-    fn get_file_content_from_filepath(&self, path: &str) -> Result<Vec<u8>> {
-        // todo put in common methods (mod.rs)
-
-        match std::fs::read(path) {
-            Ok(content) => {
-                Ok(content)
-            }
-            Err(err) => {
-                Err(Box::new(MyError::new(&err.to_string())))
-            }
-        }
     }
 
     fn get_fileid_from_path(&self, path: &str) -> Result<String> {
@@ -108,7 +96,9 @@ impl CacheFS {
 }
 
 impl filesystem::UserDiskFilesystem for CacheFS {
-    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<StorageType>) -> Option<Box<dyn Error + Send>>{
+    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: &[u8], storage_type: Option<StorageType>) -> Option<Box<dyn Error + Send>>{
+        // todo encryption
+
         if !self.is_cur_dir_home_dir() { // todo useless if we check it in class instantiation (function `new`) ?
             return Some(Box::new(MyError::new("Current directory should be home directory of the filesystem")));
         }
@@ -121,11 +111,11 @@ impl filesystem::UserDiskFilesystem for CacheFS {
             }
             match std::fs::File::create(&filepath) {
                 Ok(mut file) => {
-                    match file.write_all(&content) /* todo add encryption */ {
-                        Ok(_) => {}
-                        Err(err) => {
-                            return Some(Box::new(MyError::new(&(err.to_string()))));
+                    match self.set_file_content(&file, content, /* todo encryption key */) {
+                        Some(err) => {
+                            return Some(err);
                         }
+                        None => {}
                     }
                 }
                 Err(err) => {
@@ -224,26 +214,9 @@ impl filesystem::UserDiskFilesystem for CacheFS {
         None
     }
 
-    fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error + Send>>{
-        let filepath = self.get_default_filepath(file_id);
-
-        match std::fs::write(&filepath, &content) {
-            Ok(_) => {None}
-            Err(err) => {
-                return Some(Box::new(MyError::new(&(err.to_string()))));
-            }
-        }
-    }
-
     // get
 
-    fn get_file_content(&self, file_id: &str) -> Result<Vec<u8>> {
-        let path = self.get_default_filepath(file_id);
-
-        self.get_file_content_from_filepath(&path)
-    }
-
-    /// Returns map with key: disk_id, value: map with key: file_id as string, value: content as vector of u8
+    // get_files_disks returns map with key: disk_id, value: map with key: file_id as string, value: content as vector of u8
     fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>>{
         // todo replicate for vault fs
         let mut files_disks: HashMap<String, HashMap<String, Vec<u8>>> = HashMap::new();
@@ -274,7 +247,6 @@ impl filesystem::UserDiskFilesystem for CacheFS {
 
     /// Returns map with key: file_id as string, value: content as vector of u8
     fn get_user_files(&self, user_id: &str) -> Result<HashMap<String, Vec<u8>>>{
-        // todo now
         // todo replicate for vault fs
         let mut files: HashMap<String, Vec<u8>> = HashMap::new();
 
@@ -285,13 +257,14 @@ impl filesystem::UserDiskFilesystem for CacheFS {
 
                         // println!("file path : {}", basename(filepath));
                         match self.get_fileid_from_path(filepath) {
-                            Ok (fileid) => {
-                                match std::fs::read(file_entry.path()) {
+                            Ok(fileid) => {
+
+                                match self.get_file_content_from_filepath(filepath, /* todo encryption key */) {
                                     Ok(content) => {
                                         files.insert(fileid /* filename of link */, content);
                                     }
                                     Err(err) => {
-                                        return Err(Box::new(err));
+                                        return Err(err);
                                     }
                                 }
                             }

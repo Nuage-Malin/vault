@@ -2,7 +2,6 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::any::Any;
-use std::io::Write;
 
 use crate::filesystem;
 use crate::models::grpc::maestro_vault::{self, StorageType};
@@ -21,7 +20,7 @@ pub struct VaultFS{
 }
 
 impl filesystem::UserDiskFilesystem for VaultFS {
-    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, _: Option<StorageType>) -> Option<Box<dyn Error + Send>> {
+    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: &[u8], _: Option<StorageType>) -> Option<Box<dyn Error + Send>> {
         // AvailableDisk{uid: String::new(), type_: sysinfo::DiskKind::Unknown(0)};
         let mut disk: AvailableDisk = AvailableDisk{uid: String::new(),
                                                 type_: sysinfo::DiskKind::Unknown(0),
@@ -49,12 +48,11 @@ impl filesystem::UserDiskFilesystem for VaultFS {
             actual_filepath = String::from(disk.mount_point) + &filepath;
             match std::fs::File::create(&actual_filepath) {
                 Ok(mut file) => {
-                    match file.write_all(&content) /* todo add encryption */ {
-                        Ok(_) => {}
-                        Err(err) => {
-
-                            return Some(Box::new(MyError::new(&(err.to_string()))));
+                    match self.set_file_content(&file, &content, /* todo encryption key */) {
+                        Some(err) => {
+                            return Some(err);
                         }
+                        None => {}
                     }
                 }
                 Err(err) => {
@@ -82,11 +80,11 @@ impl filesystem::UserDiskFilesystem for VaultFS {
             } else { // file is stored on the default disk
                 match std::fs::File::create(&filepath) {
                     Ok(mut file) => {
-                        match file.write_all(&content) /* todo add encryption */ {
-                            Ok(_) => {}
-                            Err(err) => {
-                                return Some(Box::new(MyError::new(&(err.to_string()))));
+                        match self.set_file_content(&file, &content, /* todo encryption key */) {
+                            Some(err) => {
+                                return Some(err);
                             }
+                            None => {}
                         }
                     }
                     Err(err) => {
@@ -137,32 +135,6 @@ impl filesystem::UserDiskFilesystem for VaultFS {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
         return None
-    }
-
-    fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error + Send>> {
-        let filepath = self.get_default_filepath(file_id);
-        let res = std::fs::write(&filepath, &content);
-
-        match res {
-            Ok(_) => {None}
-            Err(err) => {
-                return Some(Box::new(MyError::new(&(err.to_string()))));
-
-            }
-        }
-    }
-
-    fn get_file_content(&self, file_id: &str) -> Result<Vec<u8>> {
-        let res = std::fs::read(self.get_default_filepath(file_id));
-
-        match res {
-            Ok(content) => {
-                Ok(content)
-            }
-            Err(err) => {
-                Err(Box::new(err))
-            }
-        }
     }
 
     fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>> {
@@ -256,7 +228,6 @@ impl VaultFS {
                 }
             }
         }
-
         return Ok(vault_fs);
     }
 

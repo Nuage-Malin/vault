@@ -2,10 +2,11 @@
 mod vault;
 mod cache;
 mod tests;
+mod encryption;
 pub mod error;
 pub mod disks;
 
-use crate::models::grpc::maestro_vault::{self, StorageType};
+use crate::models::grpc::maestro_vault::StorageType;
 use crate::my_eprintln;
 
 use error::MyError;
@@ -14,6 +15,7 @@ use std::env;
 use std::error::Error;
 use std::any::Any;
 use std::path::Path;
+use std::io::{Read, Write};
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 
@@ -26,7 +28,7 @@ pub trait UserDiskFilesystem: Send + Sync {
 
     /// Create ///
 
-    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: Vec<u8>, storage_type: Option<StorageType>) -> Option<Box<dyn Error + Send>>;
+    fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: &[u8], storage_type: Option<StorageType>) -> Option<Box<dyn Error + Send>>;
 
     fn create_dir(&self, directory: &str) -> Option<Box<dyn Error + Send>>{
         if !Path::new(directory).exists() {
@@ -73,8 +75,39 @@ pub trait UserDiskFilesystem: Send + Sync {
 
 
     /// Set ///
+    ///
+    fn set_file_content_from_id(&self, file_id: &str, content: &[u8], encryption_key: &[u8; 32]) -> Option<Box<dyn Error + Send>>{
+        let filepath = self.get_default_filepath(file_id);
 
-    fn set_file_content(&self, file_id: &str, content: Vec<u8>) -> Option<Box<dyn Error + Send>>;
+        return self.set_file_content_from_filepath(&filepath, content, encryption_key);
+    }
+
+    fn set_file_content_from_filepath(&self, filepath: &str, content: &[u8], encryption_key: &[u8; 32]) -> Option<Box<dyn Error + Send>> {
+        match std::fs::File::open(filepath) {
+            Ok(file) => {
+                return self.set_file_content(&file, content, encryption_key);
+            }
+            Err(r) => {
+                Some(Box::new(MyError::new(&r.to_string())))
+            }
+        }
+    }
+
+    fn set_file_content(&self, file: &std::fs::File, content: &[u8], encryption_key: &[u8; 32]) -> Option<Box<dyn Error + Send>> {
+        match encryption::FileEncryption::encrypt(content, encryption_key) {
+            Ok(encrypted_content) => {
+                match file.write_all(&encrypted_content) {
+                    Ok(_) => {None}
+                    Err(err) => {
+                        return Some(Box::new(MyError::new(&(err.to_string()))));
+                    }
+                }
+            }
+            Err(r) => {
+                Some(Box::new(MyError::new(&r.to_string())))
+            }
+        }
+    }
 
     /// Remove ///
 
@@ -113,8 +146,45 @@ pub trait UserDiskFilesystem: Send + Sync {
 
 
     /// Get ///
+    ///
+    fn get_file_content_from_id(&self, file_id: &str, encryption_key: &[u8; 32]) -> Result<Vec<u8>> {
+        let filepath = self.get_default_filepath(file_id);
 
-    fn get_file_content(&self, file_id: &str) -> Result<Vec<u8>>;
+        return self.get_file_content_from_filepath(&filepath, encryption_key);
+    }
+    fn get_file_content_from_filepath(&self, filepath: &str, encryption_key: &[u8; 32]) -> Result<Vec<u8>> {
+        // todo use
+        let res = std::fs::File::open(filepath);
+
+        match res {
+            Ok(file) => {
+                return self.get_file_content(&file, encryption_key);
+            }
+            Err(err) => {
+                Err(Box::new(err))
+            }
+        }
+    }
+
+    fn get_file_content(&self, file: &std::fs::File, encryption_key: &[u8; 32]) -> Result<Vec<u8>>{
+        let mut buf_encrypted_content: Vec<u8>;
+
+        match file.read_to_end(&mut buf_encrypted_content) {
+            Ok(read_size) => {
+                match encryption::FileEncryption::decrypt(&buf_encrypted_content, encryption_key) {
+                    Ok(decrypted_content) => {
+                        Ok(decrypted_content)
+                    }
+                    Err(r) => {
+                        Err(Box::new(MyError::new(&r.to_string())))
+                    }
+                }
+            }
+            Err(r) => {
+                Err(Box::new(MyError::new(&r.to_string())))
+            }
+        }
+    }
 
     /// get_disk_files returns map with key: file_id as string, value: content as vector of u8
     fn get_disk_files(&self, disk_id: &str) -> Result<HashMap<String, Vec<u8>>> {
@@ -278,13 +348,13 @@ pub trait UserDiskFilesystem: Send + Sync {
     }
 
     /// return hashmap with file_id as key, store_types as value
-    fn get_all_files_store_types(&self) -> Result<HashMap<String, Vec<maestro_vault::StorageType>>>;
+    fn get_all_files_store_types(&self) -> Result<HashMap<String, Vec<StorageType>>>;
 
     /// return store_types
-    fn get_file_store_types(&self, file_id: &str) -> Result<Vec<maestro_vault::StorageType>>;
+    fn get_file_store_types(&self, file_id: &str) -> Result<Vec<StorageType>>;
 
     /// return Vector with order corresponding to file_ids given as paramater, store_types
-    fn get_files_store_types(&self, file_id: Vec<&str>) -> Result<Vec<Vec<maestro_vault::StorageType>>>;
+    fn get_files_store_types(&self, file_id: Vec<&str>) -> Result<Vec<Vec<StorageType>>>;
 
     /// return vector with file_ids
     fn get_store_type_files(&self, store_type: StorageType) -> Result<Vec<String>>;
