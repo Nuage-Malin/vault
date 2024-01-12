@@ -48,7 +48,7 @@ impl filesystem::UserDiskFilesystem for VaultFS {
             actual_filepath = String::from(disk.mount_point) + &filepath;
             match std::fs::File::create(&actual_filepath) {
                 Ok(mut file) => {
-                    match self.set_file_content(&file, &content, /* todo encryption key */) {
+                    match self.set_file_content(&mut file, &content, &file_id) {
                         Some(err) => {
                             return Some(err);
                         }
@@ -80,7 +80,7 @@ impl filesystem::UserDiskFilesystem for VaultFS {
             } else { // file is stored on the default disk
                 match std::fs::File::create(&filepath) {
                     Ok(mut file) => {
-                        match self.set_file_content(&file, &content, /* todo encryption key */) {
+                        match self.set_file_content(&mut file, &content, &file_id) {
                             Some(err) => {
                                 return Some(err);
                             }

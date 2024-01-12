@@ -18,7 +18,7 @@ lazy_static! {
 fn _01_create_file_test() {
     let mut file_exists: bool = false;
 
-    match FS.create_file(fs_tests::FILE_IDS[0], fs_tests::USER_ID, fs_tests::DISK_ID, fs_tests::FILE_CONTENTS[0].clone(), None) {
+    match FS.create_file(fs_tests::FILE_IDS[0], fs_tests::USER_ID, fs_tests::DISK_ID, &fs_tests::FILE_CONTENTS[0], None) {
         None => {
             file_exists = Path::new(&FS.get_default_filepath(fs_tests::FILE_IDS[0])).exists();
         }
@@ -40,7 +40,7 @@ fn _02_create_file_storage_type_test() {
     let mut file_exists: bool = false;
     let storage_type: i32 = FILES_STORE_TYPE[1].into();
 
-    match FS.create_file(fs_tests::FILE_IDS[1], fs_tests::USER_ID, fs_tests::DISK_ID, fs_tests::FILE_CONTENTS[1].clone(), Some(i32_to_storage_type(Some(storage_type)))) {
+    match FS.create_file(fs_tests::FILE_IDS[1], fs_tests::USER_ID, fs_tests::DISK_ID, &fs_tests::FILE_CONTENTS[1], Some(i32_to_storage_type(Some(storage_type)))) {
         None => {
             let filepath = String::from("upload/") + &fs_tests::FILE_IDS[1];
 
@@ -62,7 +62,7 @@ fn _02_create_file_storage_type_test() {
 
 #[test]
 fn _03_get_file_content_test() {
-    match FS.get_file_content_from_id(fs_tests::FILE_IDS[0]) {
+    match FS.get_file_content_from_id(&fs_tests::FILE_IDS[0], &fs_tests::FILE_IDS[0]) {
         Ok(content) => {
             if content != fs_tests::FILE_CONTENTS[0] {
                 my_eprintln!("\nContent fetched from file is different than when created");

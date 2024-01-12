@@ -111,7 +111,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
             }
             match std::fs::File::create(&filepath) {
                 Ok(mut file) => {
-                    match self.set_file_content(&file, content, /* todo encryption key */) {
+                    match self.set_file_content(&mut file, content, &file_id) {
                         Some(err) => {
                             return Some(err);
                         }
@@ -259,7 +259,7 @@ impl filesystem::UserDiskFilesystem for CacheFS {
                         match self.get_fileid_from_path(filepath) {
                             Ok(fileid) => {
 
-                                match self.get_file_content_from_filepath(filepath, /* todo encryption key */) {
+                                match self.get_file_content_from_filepath(filepath, &fileid) {
                                     Ok(content) => {
                                         files.insert(fileid /* filename of link */, content);
                                     }

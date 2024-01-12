@@ -1,8 +1,9 @@
 use std::error::Error;
+use crate::my_eprintln;
+
 use super::MyError;
 
 use std::io::{Read, Write};
-use std::iter;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send>>;
 
@@ -12,15 +13,14 @@ pub struct FileEncryption {
 impl FileEncryption {
 
     /// user id is encryption (public) key
-    pub fn encrypt(input: &[u8], key: &[u8; 32]) -> Result<Vec<u8>> {
+    pub fn encrypt(input: &[u8], key: &str) -> Result<Vec<u8>> {
 
-        let key = age::x25519::Identity::generate();
-        let pubkey = key.to_public();
+        // let key = age::x25519::Identity::generate();
+        // let pubkey = key.to_public();
         // todo get key from password hash generated (not the hash stored in users DB)
 
         let encrypted = {
-            let encryptor = age::Encryptor::with_recipients(vec![Box::new(pubkey)])
-                .expect("we provided a recipient");
+            let encryptor = age::Encryptor::with_user_passphrase(age::secrecy::Secret::new(key.to_owned()));
 
             let mut encrypted = vec![];
             match encryptor.wrap_output(&mut encrypted) {
@@ -49,18 +49,26 @@ impl FileEncryption {
         return Ok(encrypted);
     }
 
-    pub fn decrypt(input: &[u8], key: &[u8; 32]) -> Result<Vec<u8>> {
-        let key = age::x25519::Identity::generate();
+    pub fn decrypt(input: &[u8], key: &str) -> Result<Vec<u8>> {
+        // let key = age::x25519::Identity::generate();
         let decrypted = {
             let decryptor = match age::Decryptor::new(&input[..]).ok() {
-                Some(age::Decryptor::Recipients(d)) => d,
+                Some(age::Decryptor::Passphrase(d)) => d,
                 _ => unreachable!(),
             };
+
             let mut decrypted = vec![];
 
-            match decryptor.decrypt(iter::once(&key as &dyn age::Identity)) {
+            match decryptor.decrypt(&age::secrecy::Secret::new(key.to_owned()), None) {
                 Ok(mut reader) => {
-                    reader.read_to_end(&mut decrypted);
+                    match reader.read_to_end(&mut decrypted) {
+                        Ok(_read_size) => {
+
+                        }
+                        Err(r) => {
+                            my_eprintln!("Could not read from encrypted file: {}", r.to_string());
+                        }
+                    }
 
                     decrypted
                 }

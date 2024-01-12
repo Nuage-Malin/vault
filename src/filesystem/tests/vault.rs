@@ -16,7 +16,7 @@ lazy_static! {
 #[test]
 fn _01_create_file_test() {
     let content = vec![1, 2, 3, 4, 5];
-    let res = FS.create_file(fs_tests::FILE_IDS[0], fs_tests::USER_ID, fs_tests::DISK_ID, content, None);
+    let res = FS.create_file(fs_tests::FILE_IDS[0], fs_tests::USER_ID, fs_tests::DISK_ID, &content, None);
     let mut file_exists: bool = false;
 
     match res {
@@ -39,7 +39,7 @@ fn _01_create_file_test() {
 #[test]
 fn _02_get_file_content_test() {
     let expected_content: Vec<u8> = vec![1, 2, 3, 4, 5];
-    let file_content = FS.get_file_content(fs_tests::FILE_IDS[0]);
+    let file_content = FS.get_file_content_from_id(&fs_tests::FILE_IDS[0], &fs_tests::FILE_IDS[0]);
 
     match file_content {
         Ok(content) => {
