@@ -21,7 +21,6 @@ pub struct VaultFS{
 
 impl filesystem::UserDiskFilesystem for VaultFS {
     fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: &[u8], _: Option<StorageType>) -> Option<Box<dyn Error + Send>> {
-        // AvailableDisk{uid: String::new(), type_: sysinfo::DiskKind::Unknown(0)};
         let mut disk: AvailableDisk = AvailableDisk{uid: String::new(),
                                                 type_: sysinfo::DiskKind::Unknown(0),
                                                 device_name: String::new(),
@@ -116,14 +115,26 @@ impl filesystem::UserDiskFilesystem for VaultFS {
 
     fn remove_file(&self, file_id: &str) -> Option<Box<dyn Error + Send>> {
         let disk_id = self.get_file_disk(&file_id);
+
         if let Err(err) = disk_id {
             return Some(err)
         }
         let user_id = self.get_file_user(&file_id);
+
         if let Err(err) = user_id {
             return Some(err)
         }
 
+        let disks = self.disks.get_disks();
+
+        for disk in disks {
+            if disk.mount_point != "/" {
+                let filepath = self.get_default_filepath(file_id);
+                let actual_filepath = String::from(disk.mount_point) + &filepath;
+
+                if let Err(_err) = std::fs::remove_file(&actual_filepath) {}
+            }
+        }
         if let Err(err) = std::fs::remove_dir_all(self.get_default_dirpath(&file_id)) {
             return Some(Box::new(MyError::new(&(err.to_string()))));
         }
