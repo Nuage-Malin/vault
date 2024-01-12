@@ -167,7 +167,7 @@ impl MaestroVaultService for MaestroVault {
     my_eprintln!("Request: modify_file"); /* todo create procedure logger module */
     let my_request: maestro_vault::ModifyFileRequest = request.into_inner();
 
-    match self.filesystem.set_file_content_from_id(&my_request.file_id, &my_request.content) {
+    match self.filesystem.set_file_content_from_id(&my_request.file_id, &my_request.content, /* todo encryption_key */) {
       None => {
         self.update_logs(&my_request.file_id, None, None, DiskAction::WRITE).await;
       }
@@ -263,7 +263,7 @@ impl MaestroVaultService for MaestroVault {
 
     let my_request = request.into_inner();
 
-    match self.filesystem.get_file_content_from_id(my_request.file_id.as_str()) {
+    match self.filesystem.get_file_content_from_id(my_request.file_id.as_str(), /* todo encryption_key */) {
       Ok(read_res) => {
         self.update_logs(my_request.file_id.as_str(), None, None, DiskAction::READ).await;
 
@@ -287,7 +287,7 @@ impl MaestroVaultService for MaestroVault {
     let mut status = maestro_vault::DownloadFilesStatus{files: vec!()};
 
     for file in my_request.files {
-      match self.filesystem.get_file_content_from_id(file.file_id.as_str()) {
+      match self.filesystem.get_file_content_from_id(file.file_id.as_str(), /* todo encryption_key */) {
         Ok(read_res) => {
           self.update_logs(file.file_id.as_str(), None, None, DiskAction::READ).await;
 
@@ -315,9 +315,9 @@ impl MaestroVaultService for MaestroVault {
     match self.filesystem.get_store_type_files(i32_to_storage_type(Some(my_request.store_type))) {
       Ok(store_type_file_ids) => {
         for file_id in store_type_file_ids {
-          match self.filesystem.get_file_content_from_id(&file_id) {
+          match self.filesystem.get_file_content_from_id(&file_id, /* todo encryption_key */) {
             Ok(content) => {
-              let elem = DownloadFilesElemStatus{file_id: file_id, content: content};
+              let elem = DownloadFilesElemStatus{file_id, content};
 
               status.files.push(elem);
             }

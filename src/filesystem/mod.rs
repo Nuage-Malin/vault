@@ -75,16 +75,16 @@ pub trait UserDiskFilesystem: Send + Sync {
 
     /// Set ///
     ///
-    fn set_file_content_from_id(&self, file_id: &str, content: &[u8]) -> Option<Box<dyn Error + Send>>{
+    fn set_file_content_from_id(&self, file_id: &str, content: &[u8], encryption_key: &[u8; 32]) -> Option<Box<dyn Error + Send>>{
         let filepath = self.get_default_filepath(file_id);
 
-        return self.set_file_content_from_filepath(&filepath, content);
+        return self.set_file_content_from_filepath(&filepath, content, encryption_key);
     }
 
-    fn set_file_content_from_filepath(&self, filepath: &str, content: &[u8]) -> Option<Box<dyn Error + Send>> {
+    fn set_file_content_from_filepath(&self, filepath: &str, content: &[u8], encryption_key: &[u8; 32]) -> Option<Box<dyn Error + Send>> {
         match std::fs::File::open(filepath) {
             Ok(file) => {
-                return self.set_file_content(&file, content);
+                return self.set_file_content(&file, content, encryption_key);
             }
             Err(r) => {
                 Some(Box::new(MyError::new(&r.to_string())))
@@ -92,8 +92,8 @@ pub trait UserDiskFilesystem: Send + Sync {
         }
     }
 
-    fn set_file_content(&self, file: &std::fs::File, content: &[u8]) -> Option<Box<dyn Error + Send>> {
-        match encryption::FileEncryption::encrypt(content, /* TODO key */) {
+    fn set_file_content(&self, file: &std::fs::File, content: &[u8], encryption_key: &[u8; 32]) -> Option<Box<dyn Error + Send>> {
+        match encryption::FileEncryption::encrypt(content, encryption_key) {
             Ok(encrypted_content) => {
                 match file.write_all(&encrypted_content) {
                     Ok(_) => {None}
@@ -141,18 +141,18 @@ pub trait UserDiskFilesystem: Send + Sync {
 
     /// Get ///
     ///
-    fn get_file_content_from_id(&self, file_id: &str) -> Result<Vec<u8>> {
+    fn get_file_content_from_id(&self, file_id: &str, encryption_key: &[u8; 32]) -> Result<Vec<u8>> {
         let filepath = self.get_default_filepath(file_id);
 
-        return self.get_file_content_from_filepath(&filepath);
+        return self.get_file_content_from_filepath(&filepath, encryption_key);
     }
-    fn get_file_content_from_filepath(&self, filepath: &str) -> Result<Vec<u8>> {
+    fn get_file_content_from_filepath(&self, filepath: &str, encryption_key: &[u8; 32]) -> Result<Vec<u8>> {
         // todo use
         let res = std::fs::File::open(filepath);
 
         match res {
             Ok(file) => {
-                return self.get_file_content(&file);
+                return self.get_file_content(&file, encryption_key);
             }
             Err(err) => {
                 Err(Box::new(err))
@@ -160,12 +160,12 @@ pub trait UserDiskFilesystem: Send + Sync {
         }
     }
 
-    fn get_file_content(&self, file: &std::fs::File) -> Result<Vec<u8>>{
+    fn get_file_content(&self, file: &std::fs::File, encryption_key: &[u8; 32]) -> Result<Vec<u8>>{
         let mut buf_encrypted_content: Vec<u8>;
 
         match file.read_to_end(&mut buf_encrypted_content) {
             Ok(read_size) => {
-                match encryption::FileEncryption::decrypt(&buf_encrypted_content, /* TODO key */) {
+                match encryption::FileEncryption::decrypt(&buf_encrypted_content, encryption_key) {
                     Ok(decrypted_content) => {
                         Ok(decrypted_content)
                     }
