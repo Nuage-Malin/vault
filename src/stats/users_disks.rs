@@ -101,6 +101,7 @@ impl MongoRepo {
                         }
                     }
                     None => {
+                        eprint!("DiskId: {}", line!());
                         return Err(Box::new(MyError::new("Didn't find any previous DiskWakeup"))); // todo log error
                         // todo instead of returning error then, when printing, appending line number and file name :
                         // append line number and filename to error when error occurs,
