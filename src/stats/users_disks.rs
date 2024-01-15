@@ -70,7 +70,7 @@ impl MongoRepo {
             .sort(doc! { "startup.date": -1 })
             .build();
         let disk_wakeup = self.disk_wakeup.find_one(
-            doc!{"diskId": disk_update.disk_id /* "shutdown": None */}, options
+            doc!{"diskId": disk_update.disk_id.clone() /* "shutdown": None */}, options
             // error here : disk_update.disk_id is object id but in db is disk id
         ).await;
         match disk_wakeup {
@@ -82,7 +82,7 @@ impl MongoRepo {
                         system.refresh_all();
                         let my_user_disk_info = UserDiskInfo{
                             _id: ObjectId::new(),
-                            disk_id: disk_update.disk_id,
+                            disk_id: disk_update.disk_id.clone(),
                             user_id: disk_update.user_id,
                             disk_wakeup: Some(disk_wakeup._id),
                             used_memory: system.used_memory(),
@@ -120,7 +120,6 @@ impl MongoRepo {
 
     pub async fn update_disk_logs(&self, disk_id: Option<String>, user_id: Option<String>, file_id: &str, action: DiskAction)
     {
-        let my_disk_id: Option<ObjectId> = if disk_id.is_some() { Some(ObjectId::from_str(&disk_id.unwrap()).unwrap())} else {None};
         let my_user_id: Option<ObjectId> = if user_id.is_some() { Some(ObjectId::from_str(&user_id.unwrap()).unwrap())} else {None};
         let my_file_id: ObjectId;
 
@@ -135,13 +134,13 @@ impl MongoRepo {
         };
 
         let disk_update = ApproxUserDiskUpdate{
-            disk_id: my_disk_id,
+            disk_id: disk_id.clone(),
             user_id: my_user_id,
             file_id: my_file_id,
             action: action
         };
         let disk_info = ApproxUserDiskInfo{
-            disk_id: my_disk_id,
+            disk_id: disk_id.clone(),
             user_id: my_user_id
         };
         let disk_update = self.disk_update_insert(disk_update).await;

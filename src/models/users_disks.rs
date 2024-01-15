@@ -14,7 +14,7 @@ use sysinfo::DiskKind;
 pub struct UserDiskInfo {
 	pub _id: ObjectId,
     #[serde(rename="diskId", skip_serializing_if = "Option::is_none")]
-	pub disk_id: Option<ObjectId>,
+	pub disk_id: Option<String>,
     #[serde(rename="userId", skip_serializing_if = "Option::is_none")]
 	pub user_id: Option<ObjectId>,
     #[serde(rename="diskWakeup")]
@@ -28,7 +28,7 @@ pub struct UserDiskInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApproxUserDiskInfo {
 	#[serde(rename = "diskId", skip_serializing_if = "Option::is_none")]
-	pub disk_id: Option<ObjectId>,
+	pub disk_id: Option<String>,
 	#[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
 	pub user_id: Option<ObjectId>
 }
@@ -47,7 +47,7 @@ pub enum DiskAction { // todo protobuf with enum so that it is compatible with a
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserDiskUpdate {
     #[serde(rename = "diskId", skip_serializing_if = "Option::is_none")]
-	pub disk_id: Option<ObjectId>,
+	pub disk_id: Option<String>,
     #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
 	pub user_id: Option<ObjectId>,
     #[serde(rename = "fileId", skip_serializing_if = "Option::is_none")]
@@ -61,7 +61,7 @@ pub struct UserDiskUpdate {
  * without time (which will be set at time of insert)
  */
 pub struct ApproxUserDiskUpdate {
-	pub disk_id: Option<ObjectId>,
+	pub disk_id: Option<String>,
 	pub user_id: Option<ObjectId>,
 	pub file_id: ObjectId, // Not sure to keep this data
 	pub action: DiskAction, // Enum: read | write | delete
