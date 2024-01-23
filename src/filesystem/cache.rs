@@ -242,7 +242,8 @@ impl filesystem::UserDiskFilesystem for CacheFS {
             // todo test
             return Ok(files_disks);
         }
-        return Err(Box::new(MyError::new(/* todo format macro like for my_eprintln ? */format!("Line {}, {}: Could not read dir : '{}'", line!(), file!(), self.get_disk_filepath("", "")).as_str())));
+        /* todo format macro like for my_eprintln ? */
+        return Err(Box::new(MyError::new(format!("Line {}, {}: Could not read dir : '{}'", line!(), file!(), self.get_disk_filepath("", "")).as_str())));
     }
 
     /// Returns map with key: file_id as string, value: content as vector of u8

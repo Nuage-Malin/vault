@@ -21,48 +21,50 @@ pub struct VaultFS{
 
 impl filesystem::UserDiskFilesystem for VaultFS {
     fn create_file(&self, file_id: &str, user_id: &str, disk_id: &str, content: &[u8], _: Option<StorageType>) -> Option<Box<dyn Error + Send>> {
-        let mut disk: AvailableDisk = AvailableDisk{uid: String::new(),
+        // let mut disk: AvailableDisk = AvailableDisk{uid: String::new(),
+        let disk: AvailableDisk = AvailableDisk{uid: String::new(),
                                                 type_: sysinfo::DiskKind::Unknown(0),
                                                 device_name: String::new(),
                                                 mount_point: String::from("/"),
                                                 total_space: 0,
                                                 available_space: 0};
 
-        match self.disks.select_disk_for_file(content.len()) {
-            Ok(available_disk) => {
-                disk = available_disk;
-            }
-            Err(_r) => {
-            }
-        }
+        // match self.disks.select_disk_for_file(content.len()) {
+            // Ok(available_disk) => {
+                // disk = available_disk;
+            // }
+            // Err(_r) => {
+            // }
+        // }
 
         if !self.is_cur_dir_home_dir() { // todo useless if we check it in class instantiation (function `new`) ?
             return Some(Box::new(MyError::new("Current directory should be home directory of the filesystem")));
         }
         let dirpath = self.get_default_dirpath(file_id);
         let filepath = self.get_default_filepath(file_id);
-        let mut actual_filepath: String = filepath.clone();
+        // let mut actual_filepath: String = filepath.clone();
+        let actual_filepath: String = filepath.clone();
 
-        if disk.mount_point != "/" { // put actual file in specific disk if non-default disk
-            actual_filepath = String::from(disk.mount_point) + &filepath;
-            match std::fs::File::create(&actual_filepath) {
-                Ok(mut file) => {
-                    match self.set_file_content(&mut file, &content, &file_id) {
-                        Some(err) => {
-                            return Some(err);
-                        }
-                        None => {}
-                    }
-                }
-                Err(_err) => {
-                    // if err.to_string() == "Permission denied (os error 13)" {
-                    actual_filepath = filepath.clone();
-                    // } else {
-                        // return Some(Box::new(MyError::new(&(err.to_string()))));
-                    // }
-                }
-            }
-        }
+        // if disk.mount_point != "/" { // put actual file in specific disk if non-default disk
+        //     actual_filepath = String::from(disk.mount_point) + &filepath;
+        //     match std::fs::File::create(&actual_filepath) {
+        //         Ok(mut file) => {
+        //             match self.set_file_content(&mut file, &content, &file_id) {
+        //                 Some(err) => {
+        //                     return Some(err);
+        //                 }
+        //                 None => {}
+        //             }
+        //         }
+        //         Err(_err) => {
+        //             // if err.to_string() == "Permission denied (os error 13)" {
+        //             actual_filepath = filepath.clone();
+        //             // } else {
+        //                 // return Some(Box::new(MyError::new(&(err.to_string()))));
+        //             // }
+        //         }
+        //     }
+        // }
 
         { // create file directory
             if let Some(err) = self.create_dir(&dirpath) {
@@ -228,16 +230,16 @@ impl VaultFS {
             return Err(err);
         }
 
-        let disks = vault_fs.disks.get_disks();
-
-        for disk in disks {
-            if disk.mount_point != "/" {
-                if let Some(_err) = vault_fs.create_dir(&(String::from(&disk.mount_point) + &vault_fs.get_default_dirpath(""))) {
-                    eprintln!("Could not write to disk '{}' mounted at '{}'", &disk.device_name, &disk.mount_point);
-                    // return Err(err);
-                }
-            }
-        }
+        // let disks = vault_fs.disks.get_disks();
+//
+        // for disk in disks {
+            // if disk.mount_point != "/" {
+                // if let Some(_err) = vault_fs.create_dir(&(String::from(&disk.mount_point) + &vault_fs.get_default_dirpath(""))) {
+                    // eprintln!("Could not write to disk '{}' mounted at '{}'", &disk.device_name, &disk.mount_point);
+                    // // return Err(err);
+                // }
+            // }
+        // }
         return Ok(vault_fs);
     }
 

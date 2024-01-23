@@ -70,9 +70,9 @@ impl MongoRepo {
             .sort(doc! { "startup.date": -1 })
             .build();
         let disk_wakeup = self.disk_wakeup.find_one(
-            doc!{"diskId": disk_update.disk_id.clone() /* "shutdown": None */}, options
-            // error here : disk_update.disk_id is object id but in db is disk id
+            doc!{"diskId": disk_update.disk_id.clone()}, options
         ).await;
+
         match disk_wakeup {
             Ok(res) => {
                 match res {
