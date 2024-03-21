@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::any::Any;
+use std::fs::{DirEntry, ReadDir};
 use std::path::Path;
 use std::io::{Read, Write};
 
@@ -225,8 +226,57 @@ pub trait UserDiskFilesystem: Send + Sync {
         return Ok(files);
     }
 
+    fn get_disk_entry_files(&self, disk_entry: DirEntry, files_disks: &mut HashMap<String, HashMap<String, Vec<u8>>>) -> Option<Box<MyError>> {
+        if let Some(diskname) = disk_entry.path().file_name() {
+            if let Some(diskname) = diskname.to_str() {
+                match self.get_disk_files(diskname) {
+                    Ok(disk_files) => {
+                        files_disks.insert(String::from(diskname), disk_files);
+                    }
+                    Err(err) => {
+                        return Err(err); // todo log error without returning ?
+                    }
+                }
+            } else {
+                // todo print error for logs
+            }
+        } else {
+            // todo print error for logs
+        }
+        return None;
+    }
+
+    fn get_disks_files(&self, entries: ReadDir) -> Result<HashMap<String, HashMap<String, Vec<u8>>>> {
+        let mut files_disks: HashMap<String, HashMap<String, Vec<u8>>> = HashMap::new();
+
+        for entry in entries {
+            if let Ok(disk_entry) = entry {
+                self.get_disk_entry_files(disk_entry, &mut files_disks);
+                // todo files_disks =
+            } else {
+                // todo print error for logs
+            }
+        }
+        // todo test
+        return Ok(files_disks);
+    }
+
+
     /// get_files_disks returns map with key: disk_id, value: map with key: file_id as string, value: content as vector of u8
-    fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>>;
+    fn get_files_disks(&self) -> Result<HashMap<String, HashMap<String, Vec<u8>>>> {
+        // todo do sub functions
+        // todo sub file
+        // todo or/and sub class
+
+        let disk_path = self.get_disk_filepath("", "");
+
+        // iterate through dirs in 'disks' dir, then iterate through  to fill up the map
+        if let Ok(entries) = std::fs::read_dir(disk_path) {
+            return self.get_disks_files(entries);
+        }
+        /* todo format macro like for my_eprintln ? */
+        return Err(Box::new(MyError::new(format!("Line {}, {}: Could not read dir : '{}'", line!(), file!(), self.get_disk_filepath("", "")).as_str())));
+    }
 
     /// get_user_files returns map with key: file_id as string, value: content as vector of u8
     // todo create a get_user_file_ids
